@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#10b981">
+  <meta name="description" content="Fit with Science — gestione allenamento, composizione corporea e alimentazione">
+  <title>Fit with Science</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body class="auth-locked">
+
+  <!-- ===================== AUTH SCREEN ===================== -->
+  <div class="auth-screen" id="authScreen"></div>
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-logo">FS</div>
+      <div class="brand-text">
+        <span class="brand-name">Fit with Science</span>
+        <span class="brand-tag">Train smarter</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="#dashboard" class="nav-item active" data-page="dashboard">
+        <span class="nav-icon" data-ic="grid"></span><span class="nav-label">Dashboard</span>
+      </a>
+      <a href="#misure" class="nav-item" data-page="misure">
+        <span class="nav-icon" data-ic="ruler"></span><span class="nav-label">Misure Corporee</span>
+      </a>
+      <a href="#allenamento" class="nav-item" data-page="allenamento">
+        <span class="nav-icon" data-ic="dumbbell"></span><span class="nav-label">Allenamento</span>
+      </a>
+      <a href="#alimentazione" class="nav-item" data-page="alimentazione">
+        <span class="nav-icon" data-ic="utensils"></span><span class="nav-label">Alimentazione</span>
+      </a>
+      <a href="#progressi" class="nav-item" data-page="progressi">
+        <span class="nav-icon" data-ic="trending"></span><span class="nav-label">Progressi</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-mini">
+        <div class="avatar" id="sideAvatar">—</div>
+        <div style="min-width:0">
+          <div class="user-name" id="sideUserName">—</div>
+          <div class="user-goal" id="sideUserGoal">—</div>
+        </div>
+        <button class="btn-icon" id="logoutBtn" title="Esci" data-ic="logout" style="margin-left:auto"></button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- ===================== MAIN ===================== -->
+  <div class="main-wrapper">
+
+    <!-- Header -->
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu" data-ic="menu"></button>
+      <div class="search-box">
+        <span class="search-icon" data-ic="search"></span>
+        <input type="search" id="globalSearch" placeholder="Cerca allenamenti, esercizi, alimenti…" autocomplete="off">
+        <div class="search-results" id="searchResults"></div>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="notifBtn" aria-label="Notifiche">
+          <span data-ic="bell"></span><span class="notif-dot"></span>
+        </button>
+        <button class="icon-btn" id="themeToggle" aria-label="Cambia tema"></button>
+        <button class="avatar avatar-btn" id="profileBtn" aria-label="Profilo">—</button>
+      </div>
+      <div class="notif-panel" id="notifPanel"></div>
+      <div class="profile-menu" id="profileMenu"></div>
+    </header>
+
+    <!-- Pages injected here -->
+    <main class="content" id="content"></main>
+  </div>
+
+  <!-- ===================== BOTTOM NAV (mobile) ===================== -->
+  <nav class="bottom-nav">
+    <a href="#dashboard" class="bnav-item active" data-page="dashboard"><span data-ic="grid"></span>Home</a>
+    <a href="#misure" class="bnav-item" data-page="misure"><span data-ic="ruler"></span>Misure</a>
+    <a href="#allenamento" class="bnav-item" data-page="allenamento"><span data-ic="dumbbell"></span>Workout</a>
+    <a href="#alimentazione" class="bnav-item" data-page="alimentazione"><span data-ic="utensils"></span>Cibo</a>
+    <a href="#progressi" class="bnav-item" data-page="progressi"><span data-ic="trending"></span>Progressi</a>
+  </nav>
+
+  <!-- ===================== MODAL / TOAST ROOTS ===================== -->
+  <div class="modal-root" id="modalRoot"></div>
+  <div class="toast-root" id="toastRoot"></div>
+
+  <input type="file" id="importFile" accept="application/json" hidden>
+
+  <script src="app.js"></script>
+</body>
+</html>
