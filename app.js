@@ -2,16 +2,52 @@
    Fit with Science — app.js
    SPA vanilla JS. Multi-utente con auth locale + Google Sign-In.
    Persistenza: localStorage per-utente + export/import file JSON.
+   i18n: italiano / inglese (selezionabile nelle impostazioni).
    NB: hosting statico (GitHub Pages) → l'auth è client-side: protegge
    l'interfaccia, non i dati. Per protezione reale serve un backend.
    ===================================================================== */
 
 'use strict';
 
-/* Inserisci qui il Client ID OAuth creato su console.cloud.google.com
-   (APIs & Services → Credentials → OAuth Client ID → Web application,
+/* Client ID OAuth (console.cloud.google.com → APIs & Services → Credentials,
    con l'origine https://<utente>.github.io tra le Authorized origins). */
-const GOOGLE_CLIENT_ID = '671477447831-it90ogc8g9bb60msa3rfcp67uvmbvmg0.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '99699687508-64rr056nisltqktkaqp1ur0ipfspp1ie.apps.googleusercontent.com';
+
+/* Client ID OAuth Fitbit (dev.fitbit.com → Register an app,
+   Application Type: "Client", Redirect URL: l'URL esatto del sito,
+   es. https://<utente>.github.io/fitwithscience/ ).
+   PKCE: nessun client secret necessario, funziona da sito statico. */
+const FITBIT_CLIENT_ID = 'YOUR_FITBIT_CLIENT_ID';
+
+/* =====================================================================
+   I18N — dizionari italiano / inglese
+   ===================================================================== */
+/* Dizionari caricati da i18n/<lang>.js (window.FWS_I18N) */
+const I18N = window.FWS_I18N || { it: {}, en: {} };
+
+const Lang = {
+  lang: localStorage.getItem('fws-lang') || 'it',
+  set(l) {
+    this.lang = l;
+    localStorage.setItem('fws-lang', l);
+    document.documentElement.lang = l;
+  },
+};
+
+/* t('chiave') → stringa tradotta; t('chiave', a, b) → sostituisce {0},{1} */
+function t(key, ...args) {
+  let s = I18N[Lang.lang][key] ?? I18N.it[key] ?? key;
+  args.forEach((a, i) => { s = s.replace('{' + i + '}', a); });
+  return s;
+}
+
+/* Pasti: chiave canonica (storage) → etichetta tradotta (display) */
+const MEAL_KEYS = ['Colazione', 'Pranzo', 'Spuntino', 'Cena'];
+const mealLabel = k => (I18N[Lang.lang]?._meals || {})[k] || k;
+
+/* Obiettivi profilo: chiave canonica → etichetta tradotta */
+const GOAL_KEYS = ['recomp', 'bulk', 'cut', 'maintain'];
+const goalLabel = g => GOAL_KEYS.includes(g) ? t('goal_' + g) : (g || '—');
 
 /* =====================================================================
    UTILS
@@ -21,8 +57,9 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
-const fmtDate = iso => new Date(iso + 'T00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
-const fmtDateShort = iso => new Date(iso + 'T00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+const locale = () => Lang.lang === 'en' ? 'en-GB' : 'it-IT';
+const fmtDate = iso => new Date(iso + 'T00:00').toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' });
+const fmtDateShort = iso => new Date(iso + 'T00:00').toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
 const round1 = n => Math.round(n * 10) / 10;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -64,13 +101,24 @@ const ICONS = {
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
   user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   gauge: '<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M12 3v3"/><path d="m17 6.3-2 2"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
 };
 
 const ic = (name, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 
-/* Sostituisce i placeholder [data-ic] presenti nell'HTML statico */
 function hydrateIcons(root = document) {
   $$('[data-ic]', root).forEach(el => { el.innerHTML = ic(el.dataset.ic); });
+}
+
+/* Aggiorna le etichette statiche di index.html secondo la lingua attiva */
+function applyStaticLang() {
+  const navMap = { dashboard: 'navDash', misure: 'navMeas', allenamento: 'navWork', alimentazione: 'navFood', progressi: 'navProg' };
+  const bnavMap = { dashboard: 'bnavHome', misure: 'bnavMeas', allenamento: 'bnavWork', alimentazione: 'bnavFood', progressi: 'bnavProg' };
+  $$('.nav-item').forEach(n => { $('.nav-label', n).textContent = t(navMap[n.dataset.page]); });
+  $$('.bnav-item').forEach(n => { n.lastChild.textContent = t(bnavMap[n.dataset.page]); });
+  $('.brand-tag').textContent = t('brandTag');
+  $('#globalSearch').placeholder = t('searchPh');
 }
 
 /* =====================================================================
@@ -96,15 +144,14 @@ const Auth = {
       const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
       return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
     }
-    // Fallback (contesti non sicuri, es. file://): hash djb2 — solo offuscamento
-    let h = 5381;
+    let h = 5381; // fallback contesti non sicuri (file://) — solo offuscamento
     for (const c of pw) h = ((h << 5) + h + c.charCodeAt(0)) >>> 0;
     return 'djb2-' + h.toString(16);
   },
 
   async register(email, pw) {
     email = email.trim().toLowerCase();
-    if (this.users().some(u => u.email === email)) throw new Error('Email già registrata');
+    if (this.users().some(u => u.email === email)) throw new Error(t('errEmailTaken'));
     const user = { id: uid(), email, provider: 'local', pwHash: await this.hash(pw), onboarded: false, createdAt: todayISO() };
     this.updateUser(user);
     localStorage.setItem(this.SESS_KEY, user.id);
@@ -114,19 +161,18 @@ const Auth = {
   async login(email, pw) {
     email = email.trim().toLowerCase();
     const user = this.users().find(u => u.email === email && u.provider === 'local');
-    if (!user || user.pwHash !== await this.hash(pw)) throw new Error('Credenziali non valide');
+    if (!user || user.pwHash !== await this.hash(pw)) throw new Error(t('errBadCreds'));
     localStorage.setItem(this.SESS_KEY, user.id);
     return user;
   },
 
-  /* payload = JWT di Google decodificato (sub, email, given_name, family_name) */
   loginGoogle(payload) {
     let user = this.users().find(u => u.provider === 'google' && u.googleSub === payload.sub);
     if (!user) {
       user = {
         id: uid(), email: payload.email, provider: 'google', googleSub: payload.sub,
         onboarded: false, createdAt: todayISO(),
-        prefill: { firstName: payload.given_name || '', lastName: payload.family_name || '' },
+        prefill: { firstName: payload.given_name || '', lastName: payload.family_name || '', avatar: payload.picture || null },
       };
       this.updateUser(user);
     }
@@ -174,7 +220,7 @@ const Store = {
 
   blank() {
     return {
-      profile: { firstName: '', lastName: '', age: null, height: null, goal: 'Ricomposizione corporea' },
+      profile: { firstName: '', lastName: '', age: null, height: null, sex: 'na', goal: 'recomp', bio: '', avatar: null },
       goals: { kcal: 2400, protein: 170, carbs: 260, fat: 75, waterGlasses: 8, weeklyWorkouts: 4 },
       measurements: [], workouts: [], templates: [], meals: [], water: {},
     };
@@ -189,13 +235,13 @@ const Store = {
     a.download = `fitwithscience-${user.email.replace(/[^a-z0-9]/gi, '_')}-${todayISO()}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
-    Toast.show('Dati esportati su file', 'info');
+    Toast.show(t('dataExported'), 'info');
   },
 
   importJSON(text) {
     const parsed = JSON.parse(text);
-    const d = parsed.data || parsed; // accetta sia il wrapper che il payload nudo
-    if (!d.profile || !Array.isArray(d.measurements)) throw new Error('Formato non valido');
+    const d = parsed.data || parsed;
+    if (!d.profile || !Array.isArray(d.measurements)) throw new Error('bad format');
     this.data = d;
     this.save();
   },
@@ -204,20 +250,20 @@ const Store = {
   seedDemo() {
     const measurements = [];
     for (let w = 12; w >= 0; w--) {
-      const t = (12 - w) / 12;
+      const tt = (12 - w) / 12;
       const noise = () => (Math.random() - 0.5) * 0.4;
       measurements.push({
         id: uid() + w, date: daysAgo(w * 7),
-        weight: round1(84.2 - 4.2 * t + noise()), height: 178,
-        neck: round1(39.5 - 0.6 * t + noise() * 0.3), shoulders: round1(118 + 1.2 * t + noise() * 0.4),
-        chest: round1(103 + 0.8 * t + noise() * 0.4), torso: round1(98 - 1.5 * t + noise() * 0.4),
-        waist: round1(88 - 4.5 * t + noise() * 0.5), abdomen: round1(91 - 4.8 * t + noise() * 0.5),
-        hips: round1(99 - 2.2 * t + noise() * 0.4),
-        armR: round1(35.5 + 1.1 * t + noise() * 0.2), armL: round1(35.1 + 1.1 * t + noise() * 0.2),
-        forearmR: round1(29.2 + 0.5 * t + noise() * 0.2), forearmL: round1(28.9 + 0.5 * t + noise() * 0.2),
-        thighR: round1(58.5 + 0.9 * t + noise() * 0.3), thighL: round1(58.2 + 0.9 * t + noise() * 0.3),
-        calfR: round1(37.8 + 0.4 * t + noise() * 0.2), calfL: round1(37.6 + 0.4 * t + noise() * 0.2),
-        bodyFat: round1(21 - 4 * t + noise() * 0.4),
+        weight: round1(84.2 - 4.2 * tt + noise()), height: 178,
+        neck: round1(39.5 - 0.6 * tt + noise() * 0.3), shoulders: round1(118 + 1.2 * tt + noise() * 0.4),
+        chest: round1(103 + 0.8 * tt + noise() * 0.4), torso: round1(98 - 1.5 * tt + noise() * 0.4),
+        waist: round1(88 - 4.5 * tt + noise() * 0.5), abdomen: round1(91 - 4.8 * tt + noise() * 0.5),
+        hips: round1(99 - 2.2 * tt + noise() * 0.4),
+        armR: round1(35.5 + 1.1 * tt + noise() * 0.2), armL: round1(35.1 + 1.1 * tt + noise() * 0.2),
+        forearmR: round1(29.2 + 0.5 * tt + noise() * 0.2), forearmL: round1(28.9 + 0.5 * tt + noise() * 0.2),
+        thighR: round1(58.5 + 0.9 * tt + noise() * 0.3), thighL: round1(58.2 + 0.9 * tt + noise() * 0.3),
+        calfR: round1(37.8 + 0.4 * tt + noise() * 0.2), calfL: round1(37.6 + 0.4 * tt + noise() * 0.2),
+        bodyFat: round1(21 - 4 * tt + noise() * 0.4),
       });
     }
 
@@ -333,7 +379,7 @@ const Store = {
     for (let d = 6; d >= 0; d--) water[daysAgo(d)] = d === 0 ? 5 : 6 + (d % 3);
 
     return {
-      profile: { firstName: 'Utente', lastName: 'Demo', age: 30, height: 178, goal: 'Ricomposizione corporea' },
+      profile: { firstName: 'Utente', lastName: 'Demo', age: 30, height: 178, sex: 'na', goal: 'recomp', bio: '', avatar: null },
       goals: { kcal: 2400, protein: 170, carbs: 260, fat: 75, waterGlasses: 8, weeklyWorkouts: 4 },
       measurements, workouts, templates, meals, water,
     };
@@ -360,7 +406,7 @@ const Modal = {
     root.innerHTML = `
       <div class="modal-backdrop"></div>
       <div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true">
-        <div class="modal-head"><h3>${esc(title)}</h3>${locked ? '' : `<button class="btn-icon modal-close" aria-label="Chiudi">${ic('x')}</button>`}</div>
+        <div class="modal-head"><h3>${esc(title)}</h3>${locked ? '' : `<button class="btn-icon modal-close" aria-label="${t('close')}">${ic('x')}</button>`}</div>
         <div class="modal-body">${body}</div>
         ${footer ? `<div class="modal-foot">${footer}</div>` : ''}
       </div>`;
@@ -381,9 +427,9 @@ const Modal = {
 
 function confirmDialog(msg, onYes) {
   Modal.open({
-    title: 'Conferma',
+    title: t('confirm'),
     body: `<p style="font-size:14px">${esc(msg)}</p>`,
-    footer: `<button class="btn" id="cfNo">Annulla</button><button class="btn btn-danger" id="cfYes">Elimina</button>`,
+    footer: `<button class="btn" id="cfNo">${t('cancel')}</button><button class="btn btn-danger" id="cfYes">${t('del')}</button>`,
     onMount(root) {
       $('#cfNo', root).onclick = () => Modal.close();
       $('#cfYes', root).onclick = () => { Modal.close(); onYes(); };
@@ -391,7 +437,6 @@ function confirmDialog(msg, onYes) {
   });
 }
 
-/* Validazione: [data-req] non vuoto, [data-pos] numero >= 0 */
 function validateForm(root) {
   let ok = true;
   $$('[data-req]', root).forEach(inp => {
@@ -462,7 +507,7 @@ const Stats = {
     return m && h ? round1(m.weight / ((h / 100) ** 2)) : null;
   },
 
-  workoutVolume(w) { return w.exercises.reduce((t, e) => t + e.sets * e.reps * e.weight, 0); },
+  workoutVolume(w) { return w.exercises.reduce((tt, e) => tt + e.sets * e.reps * e.weight, 0); },
   sortedWorkouts() { return [...Store.data.workouts].sort((a, b) => b.date.localeCompare(a.date)); },
 
   streak() {
@@ -485,8 +530,8 @@ const Stats = {
   mealsFor(date) { return Store.data.meals.filter(m => m.date === date); },
 
   dayMacros(date) {
-    return this.mealsFor(date).reduce((t, m) => ({
-      kcal: t.kcal + m.kcal, protein: t.protein + m.protein, carbs: t.carbs + m.carbs, fat: t.fat + m.fat,
+    return this.mealsFor(date).reduce((tt, m) => ({
+      kcal: tt.kcal + m.kcal, protein: tt.protein + m.protein, carbs: tt.carbs + m.carbs, fat: tt.fat + m.fat,
     }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
   },
 
@@ -542,18 +587,18 @@ function renderTable({ mountId, columns, rows, pageSize = 8, csvName, onEdit, on
     const tbody = slice.length ? slice.map(row => `<tr>
       ${columns.map(c => `<td>${c.render ? c.render(row) : esc(row[c.key])}</td>`).join('')}
       ${onEdit || onDelete ? `<td><div class="td-actions">
-        ${onEdit ? `<button class="btn-icon" data-edit="${row.id}" title="Modifica">${ic('pencil')}</button>` : ''}
-        ${onDelete ? `<button class="btn-icon danger" data-del="${row.id}" title="Elimina">${ic('trash')}</button>` : ''}
+        ${onEdit ? `<button class="btn-icon" data-edit="${row.id}" title="${t('edit')}">${ic('pencil')}</button>` : ''}
+        ${onDelete ? `<button class="btn-icon danger" data-del="${row.id}" title="${t('del')}">${ic('trash')}</button>` : ''}
       </div></td>` : ''}
     </tr>`).join('')
-      : `<tr><td colspan="${columns.length + 1}"><div class="empty-state"><div class="es-ico">${ic('inbox')}</div><b>Nessun risultato</b><p>${esc(emptyMsg || 'Nessun dato disponibile.')}</p></div></td></tr>`;
+      : `<tr><td colspan="${columns.length + 1}"><div class="empty-state"><div class="es-ico">${ic('inbox')}</div><b>${t('noResults')}</b><p>${esc(emptyMsg || t('noData'))}</p></div></td></tr>`;
 
     let pager = '';
     for (let p = 1; p <= pages; p++) pager += `<button class="${p === state.page ? 'active' : ''}" data-pg="${p}">${p}</button>`;
 
     mount.innerHTML = `
       <div class="table-scroll"><table class="data-table"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table></div>
-      <div class="table-footer"><span>${all.length} elementi</span><div class="pager">${pager}</div></div>`;
+      <div class="table-footer"><span>${all.length} ${t('items')}</span><div class="pager">${pager}</div></div>`;
 
     $$('th[data-k]', mount).forEach(th => th.onclick = () => {
       const k = th.dataset.k;
@@ -579,531 +624,25 @@ function renderTable({ mountId, columns, rows, pageSize = 8, csvName, onEdit, on
       a.download = (csvName || 'export') + '.csv';
       a.click();
       URL.revokeObjectURL(a.href);
-      Toast.show('CSV esportato', 'info');
+      Toast.show(t('csvExported'), 'info');
     },
   };
 }
 
-/* =====================================================================
-   PAGINE
-   ===================================================================== */
-const Pages = {
-
-  /* ------------------------------------------------ DASHBOARD */
-  dashboard() {
-    const m = Stats.latestM(), prev = Stats.prevM();
-    const dWeight = m && prev ? round1(m.weight - prev.weight) : 0;
-    const macros = Stats.dayMacros(todayISO());
-    const goals = Store.data.goals;
-    const week = Stats.weekWorkouts();
-    const weekMin = week.reduce((t, w) => t + w.duration, 0);
-    const recent = Stats.sortedWorkouts().slice(0, 4);
-    const recentM = [...Stats.sortedMeasurements()].reverse().slice(0, 4);
-    const prs = Stats.personalRecords().slice(0, 5);
-    const nextName = recent[0]?.name.includes('Upper') ? 'Lower A — Squat focus' : 'Upper A — Spinta';
-    const p = Store.data.profile;
-
-    return `
-    <div class="page">
-      <div class="page-head">
-        <div class="page-title"><h1>Ciao${p.firstName ? ', ' + esc(p.firstName) : ''}</h1><p>Panoramica del ${fmtDate(todayISO())}</p></div>
-        <div class="actions quick-actions">
-          <button class="btn btn-primary" data-quick="misura">${ic('plus')} Misurazione</button>
-          <button class="btn btn-blue" data-quick="workout">${ic('plus')} Allenamento</button>
-          <button class="btn" data-quick="pasto">${ic('plus')} Pasto</button>
-        </div>
-      </div>
-
-      <div class="grid grid-stats">
-        ${statCard('Peso attuale', m ? `${m.weight}<small> kg</small>` : '—', m && prev ? (dWeight <= 0 ? `↓ ${Math.abs(dWeight)} kg vs precedente` : `↑ +${dWeight} kg vs precedente`) : '', dWeight <= 0 ? 'delta-down' : 'delta-up', 'scale', 'ico-emerald')}
-        ${statCard('BMI', Stats.bmi(m) ?? '—', m ? 'Indice massa corporea' : '', 'delta-good', 'gauge', 'ico-blue')}
-        ${statCard('Massa grassa', m?.bodyFat ? `${m.bodyFat}<small> %</small>` : '—', prev?.bodyFat && m?.bodyFat ? `${round1(m.bodyFat - prev.bodyFat)} % vs precedente` : '', 'delta-down', 'percent', 'ico-purple')}
-        ${statCard('Streak', `${Stats.streak()}<small> giorni</small>`, 'Allenamenti consecutivi', 'delta-good', 'flame', 'ico-amber')}
-        ${statCard('Calorie oggi', `${Math.round(macros.kcal)}<small> kcal</small>`, `${Math.max(0, goals.kcal - Math.round(macros.kcal))} rimanenti`, 'delta-neutral', 'utensils', 'ico-emerald')}
-        ${statCard('Allenamenti (7g)', `${week.length}<small> / ${goals.weeklyWorkouts}</small>`, `${weekMin} min totali`, 'delta-neutral', 'dumbbell', 'ico-blue')}
-        ${statCard('Prossima sessione', `<span style="font-size:15px">${esc(nextName)}</span>`, 'Suggerita in base allo split', 'delta-neutral', 'calendar', 'ico-purple')}
-        ${statCard('Proteine oggi', `${Math.round(macros.protein)}<small> / ${goals.protein} g</small>`, `${Math.round(macros.protein / goals.protein * 100)}% obiettivo`, 'delta-good', 'activity', 'ico-amber')}
-      </div>
-
-      <div class="grid grid-2 mt">
-        <div class="card"><div class="card-head-row"><div><div class="card-title">Andamento peso</div><div class="card-sub">Storico misurazioni</div></div></div>
-          <div class="chart-wrap"><canvas id="chWeight"></canvas></div></div>
-        <div class="card"><div class="card-title">Volume allenamento</div><div class="card-sub">kg totali sollevati per sessione</div>
-          <div class="chart-wrap"><canvas id="chVolume"></canvas></div></div>
-        <div class="card"><div class="card-title">Calorie giornaliere</div><div class="card-sub">Ultimi 7 giorni vs obiettivo</div>
-          <div class="chart-wrap"><canvas id="chKcal"></canvas></div></div>
-        <div class="card"><div class="card-title">Macronutrienti oggi</div><div class="card-sub">Distribuzione</div>
-          <div class="chart-wrap"><canvas id="chMacro"></canvas></div></div>
-      </div>
-
-      <div class="grid grid-3 mt">
-        <div class="card"><div class="card-title">Ultimi allenamenti</div><div class="card-sub">Sessioni recenti</div>
-          ${recent.length ? recent.map(w => `<div class="list-row"><div class="list-ico ico-blue">${ic('dumbbell')}</div>
-            <div class="list-main"><b>${esc(w.name)}</b><span>${fmtDateShort(w.date)} · ${w.exercises.length} esercizi</span></div>
-            <div class="list-end"><b>${Math.round(Stats.workoutVolume(w)).toLocaleString('it-IT')} kg</b>${w.duration} min</div></div>`).join('')
-          : emptyState('dumbbell', 'Nessun allenamento', 'Registra la prima sessione.')}
-        </div>
-        <div class="card"><div class="card-title">Ultime misurazioni</div><div class="card-sub">Peso e vita</div>
-          ${recentM.length ? recentM.map(x => `<div class="list-row"><div class="list-ico ico-emerald">${ic('ruler')}</div>
-            <div class="list-main"><b>${x.weight} kg</b><span>${fmtDateShort(x.date)}</span></div>
-            <div class="list-end"><b>${x.waist ?? '—'} cm</b>vita</div></div>`).join('')
-          : emptyState('ruler', 'Nessuna misurazione', 'Aggiungi la prima misurazione.')}
-        </div>
-        <div class="card"><div class="card-title">Record personali</div><div class="card-sub">Basati su 1RM stimato</div>
-          ${prs.length ? prs.map((p2, i) => `<div class="pr-item"><span class="pr-rank ${['', 'r2', 'r3', 'rn', 'rn'][i]}">${i + 1}</span>
-            <div><div class="pr-name">${esc(p2.name)}</div><div class="pr-detail">${p2.weight} kg × ${p2.reps} · ${fmtDateShort(p2.date)}</div></div>
-            <span class="pr-value">${Math.round(p2.orm)} kg</span></div>`).join('')
-          : emptyState('trophy', 'Nessun record', 'I PR appariranno dopo i primi allenamenti.')}
-        </div>
-      </div>
-    </div>`;
-  },
-
-  dashboardCharts() {
-    const ms = Stats.sortedMeasurements();
-    Charts.make('chWeight', {
-      type: 'line',
-      data: {
-        labels: ms.map(m => fmtDateShort(m.date)),
-        datasets: [{
-          label: 'Peso (kg)', data: ms.map(m => m.weight),
-          borderColor: Charts.colors.emerald, backgroundColor: Charts.gradient('chWeight', Charts.colors.emerald),
-          fill: true, tension: .35, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5,
-        }],
-      },
-      options: Charts.baseOpts(),
-    });
-
-    const ws = [...Store.data.workouts].sort((a, b) => a.date.localeCompare(b.date));
-    Charts.make('chVolume', {
-      type: 'bar',
-      data: {
-        labels: ws.map(w => fmtDateShort(w.date)),
-        datasets: [{ label: 'Volume (kg)', data: ws.map(w => Math.round(Stats.workoutVolume(w))), backgroundColor: Charts.colors.blue + 'cc', borderRadius: 8, maxBarThickness: 26 }],
-      },
-      options: Charts.baseOpts(),
-    });
-
-    const days = [...Array(7)].map((_, i) => daysAgo(6 - i));
-    Charts.make('chKcal', {
-      type: 'bar',
-      data: {
-        labels: days.map(fmtDateShort),
-        datasets: [
-          { label: 'Calorie', data: days.map(d => Math.round(Stats.dayMacros(d).kcal)), backgroundColor: Charts.colors.emerald + 'cc', borderRadius: 8, maxBarThickness: 30 },
-          { label: 'Obiettivo', data: days.map(() => Store.data.goals.kcal), type: 'line', borderColor: Charts.colors.amber, borderDash: [6, 5], pointRadius: 0, borderWidth: 2 },
-        ],
-      },
-      options: Charts.baseOpts(),
-    });
-
-    const mac = Stats.dayMacros(todayISO());
-    Charts.make('chMacro', {
-      type: 'doughnut',
-      data: {
-        labels: ['Proteine', 'Carboidrati', 'Grassi'],
-        datasets: [{ data: [mac.protein * 4, mac.carbs * 4, mac.fat * 9].map(Math.round), backgroundColor: [Charts.colors.emerald, Charts.colors.blue, Charts.colors.amber], borderWidth: 0, hoverOffset: 8 }],
-      },
-      options: { ...Charts.baseOpts({ cutout: '62%' }), scales: {} },
-    });
-  },
-
-  /* ------------------------------------------------ MISURE */
-  misure() {
-    return `
-    <div class="page">
-      <div class="page-head">
-        <div class="page-title"><h1>Misure Corporee</h1><p>Traccia peso e circonferenze nel tempo</p></div>
-        <div class="actions">
-          <button class="btn" id="btnCompare">${ic('swap')} Confronta date</button>
-          <button class="btn btn-primary" id="btnAddM">${ic('plus')} Nuova misurazione</button>
-        </div>
-      </div>
-
-      <div class="grid grid-2">
-        <div class="card"><div class="card-head-row"><div><div class="card-title">Andamento nel tempo</div><div class="card-sub">Seleziona la misura</div></div>
-          <select id="mMetric" class="table-search" style="width:auto">
-            ${M_FIELDS.map(f => `<option value="${f.key}">${f.label}</option>`).join('')}
-          </select></div>
-          <div class="chart-wrap"><canvas id="chMeasure"></canvas></div></div>
-        <div class="card"><div class="card-title">Variazioni % (prima → ultima)</div><div class="card-sub">Su tutto lo storico</div>
-          <div class="chart-wrap"><canvas id="chDeltas"></canvas></div></div>
-      </div>
-
-      <div class="card table-card mt">
-        <div class="table-toolbar"><div class="card-title">Cronologia misurazioni</div>
-          <div class="spacer">
-            <input class="table-search" id="mSearch" placeholder="Cerca…">
-            <button class="btn btn-sm" id="mCsv">${ic('download')} CSV</button>
-            <button class="btn btn-sm" id="mPdf">${ic('download')} PDF</button>
-          </div></div>
-        <div id="mTable"></div>
-      </div>
-    </div>`;
-  },
-
-  misureMount() {
-    const cols = [
-      { key: 'date', label: 'Data', render: r => fmtDate(r.date) },
-      { key: 'weight', label: 'Peso (kg)' },
-      { key: 'bodyFat', label: 'Grasso %', render: r => r.bodyFat ?? '—' },
-      { key: 'waist', label: 'Vita', render: r => r.waist ?? '—' },
-      { key: 'chest', label: 'Petto', render: r => r.chest ?? '—' },
-      { key: 'hips', label: 'Fianchi', render: r => r.hips ?? '—' },
-      { key: 'armR', label: 'Braccio dx', render: r => r.armR ?? '—' },
-      { key: 'thighR', label: 'Coscia dx', render: r => r.thighR ?? '—' },
-    ];
-    const table = renderTable({
-      mountId: 'mTable', columns: cols, rows: Store.data.measurements, csvName: 'misure',
-      onEdit: id => measurementForm(Store.data.measurements.find(x => x.id === id)),
-      onDelete: id => confirmDialog('Eliminare questa misurazione? L\'operazione non è reversibile.', () => {
-        Store.data.measurements = Store.data.measurements.filter(x => x.id !== id);
-        Store.save(); Toast.show('Misurazione eliminata'); Router.render();
-      }),
-      emptyMsg: 'Aggiungi la prima misurazione con il pulsante in alto.',
-    });
-    $('#mSearch').oninput = e => table.search(e.target.value);
-    $('#mCsv').onclick = () => table.exportCSV();
-    $('#mPdf').onclick = () => window.print();
-    $('#btnAddM').onclick = () => measurementForm();
-    $('#btnCompare').onclick = () => compareDialog();
-
-    const drawMetric = key => {
-      Charts.registry = Charts.registry.filter(c => (c.canvas.id === 'chMeasure' ? (c.destroy(), false) : true));
-      const ms = Stats.sortedMeasurements();
-      const f = M_FIELDS.find(x => x.key === key);
-      Charts.make('chMeasure', {
-        type: 'line',
-        data: {
-          labels: ms.map(m => fmtDateShort(m.date)),
-          datasets: [{ label: `${f.label} (${f.unit})`, data: ms.map(m => m[key]), borderColor: Charts.colors.blue, backgroundColor: Charts.gradient('chMeasure', Charts.colors.blue), fill: true, tension: .35, pointRadius: 3, borderWidth: 2.5, spanGaps: true }],
-        },
-        options: Charts.baseOpts(),
-      });
-    };
-    drawMetric('weight');
-    $('#mMetric').onchange = e => drawMetric(e.target.value);
-
-    const s = Stats.sortedMeasurements();
-    if (s.length >= 2) {
-      const first = s[0], last = s[s.length - 1];
-      const keys = M_FIELDS.filter(f => f.key !== 'height' && first[f.key] != null && last[f.key] != null).slice(0, 10);
-      Charts.make('chDeltas', {
-        type: 'bar',
-        data: {
-          labels: keys.map(f => f.label),
-          datasets: [{
-            label: 'Variazione %',
-            data: keys.map(f => round1((last[f.key] - first[f.key]) / first[f.key] * 100)),
-            backgroundColor: keys.map(f => (last[f.key] - first[f.key]) <= 0 ? Charts.colors.emerald + 'cc' : Charts.colors.blue + 'cc'),
-            borderRadius: 8, maxBarThickness: 26,
-          }],
-        },
-        options: { ...Charts.baseOpts(), indexAxis: 'y' },
-      });
-    }
-  },
-
-  /* ------------------------------------------------ ALLENAMENTO */
-  allenamento() {
-    const ws = Stats.sortedWorkouts();
-    const totVol = ws.reduce((t, w) => t + Stats.workoutVolume(w), 0);
-    const totEx = ws.reduce((t, w) => t + w.exercises.length, 0);
-
-    return `
-    <div class="page">
-      <div class="page-head">
-        <div class="page-title"><h1>Allenamento</h1><p>Programmi, sessioni e statistiche</p></div>
-        <div class="actions">
-          <button class="btn" id="btnTemplates">${ic('clipboard')} Modelli (${Store.data.templates.length})</button>
-          <button class="btn btn-primary" id="btnAddW">${ic('plus')} Nuovo allenamento</button>
-        </div>
-      </div>
-
-      <div class="grid grid-stats">
-        ${statCard('Sessioni totali', ws.length, 'Nello storico', 'delta-neutral', 'calendar', 'ico-blue')}
-        ${statCard('Volume totale', `${Math.round(totVol / 1000).toLocaleString('it-IT')}<small> t</small>`, 'Peso sollevato complessivo', 'delta-good', 'trending', 'ico-emerald')}
-        ${statCard('Esercizi svolti', totEx, `Media ${round1(totEx / (ws.length || 1))} a sessione`, 'delta-neutral', 'target', 'ico-purple')}
-        ${statCard('Durata media', `${Math.round(ws.reduce((t, w) => t + w.duration, 0) / (ws.length || 1))}<small> min</small>`, 'Per sessione', 'delta-neutral', 'clock', 'ico-amber')}
-      </div>
-
-      <div class="grid grid-2 mt">
-        <div class="card"><div class="card-title">Volume nel tempo</div><div class="card-sub">kg per sessione</div>
-          <div class="chart-wrap"><canvas id="chWVol"></canvas></div></div>
-        <div class="card"><div class="card-title">Frequenza gruppi muscolari</div><div class="card-sub">Serie totali per gruppo</div>
-          <div class="chart-wrap"><canvas id="chWRadar"></canvas></div></div>
-      </div>
-
-      <div class="card table-card mt">
-        <div class="table-toolbar"><div class="card-title">Storico allenamenti</div>
-          <div class="spacer">
-            <input class="table-search" id="wSearch" placeholder="Cerca…">
-            <button class="btn btn-sm" id="wCsv">${ic('download')} CSV</button>
-          </div></div>
-        <div id="wTable"></div>
-      </div>
-    </div>`;
-  },
-
-  allenamentoMount() {
-    const rows = Stats.sortedWorkouts().map(w => ({
-      ...w, volume: Math.round(Stats.workoutVolume(w)), nEx: w.exercises.length,
-    }));
-    const table = renderTable({
-      mountId: 'wTable', csvName: 'allenamenti', rows,
-      columns: [
-        { key: 'date', label: 'Data', render: r => fmtDate(r.date) },
-        { key: 'name', label: 'Nome', render: r => `<b>${esc(r.name)}</b>` },
-        { key: 'group', label: 'Gruppo', render: r => `<span class="badge badge-blue">${esc(r.group)}</span>` },
-        { key: 'nEx', label: 'Esercizi' },
-        { key: 'volume', label: 'Volume (kg)', render: r => r.volume.toLocaleString('it-IT') },
-        { key: 'duration', label: 'Durata (min)' },
-      ],
-      onEdit: id => workoutForm(Store.data.workouts.find(x => x.id === id)),
-      onDelete: id => confirmDialog('Eliminare questo allenamento?', () => {
-        Store.data.workouts = Store.data.workouts.filter(x => x.id !== id);
-        Store.save(); Toast.show('Allenamento eliminato'); Router.render();
-      }),
-      emptyMsg: 'Crea il primo allenamento o parti da un modello.',
-    });
-    $('#wSearch').oninput = e => table.search(e.target.value);
-    $('#wCsv').onclick = () => table.exportCSV();
-    $('#btnAddW').onclick = () => workoutForm();
-    $('#btnTemplates').onclick = () => templatesDialog();
-
-    const ws = [...Store.data.workouts].sort((a, b) => a.date.localeCompare(b.date));
-    Charts.make('chWVol', {
-      type: 'line',
-      data: {
-        labels: ws.map(w => fmtDateShort(w.date)),
-        datasets: [{ label: 'Volume (kg)', data: ws.map(w => Math.round(Stats.workoutVolume(w))), borderColor: Charts.colors.emerald, backgroundColor: Charts.gradient('chWVol', Charts.colors.emerald), fill: true, tension: .35, pointRadius: 3, borderWidth: 2.5 }],
-      },
-      options: Charts.baseOpts(),
-    });
-
-    const freq = Stats.muscleFrequency();
-    const labels = Object.keys(freq);
-    if (labels.length) {
-      Charts.make('chWRadar', {
-        type: 'radar',
-        data: {
-          labels,
-          datasets: [{ label: 'Serie totali', data: labels.map(l => freq[l]), borderColor: Charts.colors.purple, backgroundColor: Charts.colors.purple + '33', pointBackgroundColor: Charts.colors.purple, borderWidth: 2 }],
-        },
-        options: {
-          ...Charts.baseOpts(), scales: {
-            r: {
-              grid: { color: getComputedStyle(document.documentElement).getPropertyValue('--border').trim() },
-              pointLabels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-soft').trim(), font: { family: 'Inter', size: 10.5 } },
-              ticks: { display: false },
-            },
-          },
-        },
-      });
-    }
-  },
-
-  /* ------------------------------------------------ ALIMENTAZIONE */
-  alimentazione() {
-    const date = State.foodDate;
-    const mac = Stats.dayMacros(date);
-    const g = Store.data.goals;
-    const water = Store.data.water[date] || 0;
-    const mealNames = ['Colazione', 'Pranzo', 'Spuntino', 'Cena'];
-    const meals = Stats.mealsFor(date);
-
-    const mealBlocks = mealNames.map(mn => {
-      const foods = meals.filter(m => m.meal === mn);
-      const kcal = foods.reduce((t, f) => t + f.kcal, 0);
-      return `<div class="card mt">
-        <div class="card-head-row"><div><div class="card-title">${mn}</div><div class="card-sub">${Math.round(kcal)} kcal</div></div>
-          <button class="btn btn-sm btn-primary" data-addfood="${mn}">${ic('plus')} Alimento</button></div>
-        ${foods.length ? foods.map(f => `<div class="list-row"><div class="list-ico ico-emerald">${ic('utensils')}</div>
-          <div class="list-main"><b>${esc(f.name)}</b><span>${esc(f.qty)} · P ${f.protein}g · C ${f.carbs}g · G ${f.fat}g</span></div>
-          <div class="list-end"><b>${Math.round(f.kcal)} kcal</b></div>
-          <div class="td-actions"><button class="btn-icon" data-editfood="${f.id}">${ic('pencil')}</button><button class="btn-icon danger" data-delfood="${f.id}">${ic('trash')}</button></div>
-        </div>`).join('') : `<div class="empty-state" style="padding:18px"><p>Nessun alimento registrato.</p></div>`}
-      </div>`;
-    }).join('');
-
-    return `
-    <div class="page">
-      <div class="page-head">
-        <div class="page-title"><h1>Alimentazione</h1><p>Diario alimentare e obiettivi nutrizionali</p></div>
-        <div class="actions">
-          <div class="field" style="margin:0"><input type="date" id="foodDate" value="${date}" max="${todayISO()}" style="height:42px"></div>
-        </div>
-      </div>
-
-      <div class="grid grid-stats">
-        ${statCard('Calorie', `${Math.round(mac.kcal)}<small> / ${g.kcal}</small>`, `${Math.max(0, g.kcal - Math.round(mac.kcal))} kcal rimanenti`, mac.kcal > g.kcal ? 'delta-up' : 'delta-good', 'flame', 'ico-emerald')}
-        ${statCard('Proteine', `${Math.round(mac.protein)}<small> / ${g.protein} g</small>`, `${Math.round(mac.protein / g.protein * 100)}%`, 'delta-good', 'activity', 'ico-blue')}
-        ${statCard('Carboidrati', `${Math.round(mac.carbs)}<small> / ${g.carbs} g</small>`, `${Math.round(mac.carbs / g.carbs * 100)}%`, 'delta-neutral', 'target', 'ico-amber')}
-        ${statCard('Grassi', `${Math.round(mac.fat)}<small> / ${g.fat} g</small>`, `${Math.round(mac.fat / g.fat * 100)}%`, 'delta-neutral', 'droplet', 'ico-purple')}
-      </div>
-
-      <div class="grid grid-2 mt">
-        <div class="card">
-          <div class="card-title">Obiettivi nutrizionali</div><div class="card-sub">Avanzamento giornaliero</div>
-          ${macroBar('Calorie', Math.round(mac.kcal), g.kcal, 'kcal')}
-          ${macroBar('Proteine', Math.round(mac.protein), g.protein, 'g')}
-          ${macroBar('Carboidrati', Math.round(mac.carbs), g.carbs, 'g')}
-          ${macroBar('Grassi', Math.round(mac.fat), g.fat, 'g')}
-        </div>
-        <div class="card">
-          <div class="card-head-row"><div><div class="card-title">Acqua</div><div class="card-sub">${water} / ${g.waterGlasses} bicchieri (${round1(water * 0.25)} L)</div></div></div>
-          <div class="water-glasses">
-            ${[...Array(g.waterGlasses)].map((_, i) => `<button class="water-glass ${i < water ? 'full' : ''}" data-water="${i + 1}">${ic('droplet')}</button>`).join('')}
-          </div>
-          <div class="card-title mt" style="font-size:14px">Riepilogo settimanale</div>
-          <div class="chart-wrap short"><canvas id="chWeekKcal"></canvas></div>
-        </div>
-      </div>
-
-      ${mealBlocks}
-    </div>`;
-  },
-
-  alimentazioneMount() {
-    $('#foodDate').onchange = e => { State.foodDate = e.target.value; Router.render(); };
-    $$('[data-addfood]').forEach(b => b.onclick = () => foodForm(null, b.dataset.addfood));
-    $$('[data-editfood]').forEach(b => b.onclick = () => foodForm(Store.data.meals.find(m => m.id === b.dataset.editfood)));
-    $$('[data-delfood]').forEach(b => b.onclick = () => confirmDialog('Eliminare questo alimento?', () => {
-      Store.data.meals = Store.data.meals.filter(m => m.id !== b.dataset.delfood);
-      Store.save(); Toast.show('Alimento eliminato'); Router.render();
-    }));
-    $$('[data-water]').forEach(b => b.onclick = () => {
-      const n = Number(b.dataset.water);
-      const cur = Store.data.water[State.foodDate] || 0;
-      Store.data.water[State.foodDate] = (n === cur) ? n - 1 : n; // click sull'ultimo pieno lo svuota
-      Store.save(); Router.render();
-    });
-
-    const days = [...Array(7)].map((_, i) => daysAgo(6 - i));
-    Charts.make('chWeekKcal', {
-      type: 'bar',
-      data: {
-        labels: days.map(fmtDateShort),
-        datasets: [
-          { label: 'Proteine (g)', data: days.map(d => Math.round(Stats.dayMacros(d).protein)), backgroundColor: Charts.colors.emerald + 'cc', borderRadius: 6, maxBarThickness: 22 },
-          { label: 'Carbo (g)', data: days.map(d => Math.round(Stats.dayMacros(d).carbs)), backgroundColor: Charts.colors.blue + 'cc', borderRadius: 6, maxBarThickness: 22 },
-          { label: 'Grassi (g)', data: days.map(d => Math.round(Stats.dayMacros(d).fat)), backgroundColor: Charts.colors.amber + 'cc', borderRadius: 6, maxBarThickness: 22 },
-        ],
-      },
-      options: { ...Charts.baseOpts(), scales: { x: { stacked: true, grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }, y: { stacked: true, ticks: { color: '#94a3b8', font: { size: 10 } }, border: { display: false } } } },
-    });
-  },
-
-  /* ------------------------------------------------ PROGRESSI */
-  progressi() {
-    return `
-    <div class="page">
-      <div class="page-head">
-        <div class="page-title"><h1>Progressi</h1><p>Analisi storica e confronti</p></div>
-        <div class="actions chip-row" id="rangeChips">
-          <button class="chip ${State.range === 7 ? 'active' : ''}" data-range="7">Settimana</button>
-          <button class="chip ${State.range === 30 ? 'active' : ''}" data-range="30">Mese</button>
-          <button class="chip ${State.range === 365 ? 'active' : ''}" data-range="365">Anno</button>
-          <button class="chip ${State.range === 0 ? 'active' : ''}" data-range="0">Tutto</button>
-        </div>
-      </div>
-
-      <div id="progStats" class="grid grid-stats"></div>
-
-      <div class="grid grid-2 mt">
-        <div class="card"><div class="card-title">Peso</div><div class="card-sub">Nel periodo selezionato</div>
-          <div class="chart-wrap"><canvas id="pgWeight"></canvas></div></div>
-        <div class="card"><div class="card-title">Circonferenze chiave</div><div class="card-sub">Vita, petto, braccio dx</div>
-          <div class="chart-wrap"><canvas id="pgCirc"></canvas></div></div>
-        <div class="card"><div class="card-title">Calorie</div><div class="card-sub">Assunzione giornaliera</div>
-          <div class="chart-wrap"><canvas id="pgKcal"></canvas></div></div>
-        <div class="card"><div class="card-title">Volume allenamento</div><div class="card-sub">Andamento del carico</div>
-          <div class="chart-wrap"><canvas id="pgVol"></canvas></div></div>
-      </div>
-
-      <div class="card mt"><div class="card-title">Miglioramenti percentuali</div><div class="card-sub">Dal primo all'ultimo rilevamento del periodo</div>
-        <div id="pgImprovements" class="cmp-grid" style="grid-template-columns:1fr auto auto"></div></div>
-    </div>`;
-  },
-
-  progressiMount() {
-    $$('#rangeChips .chip').forEach(c => c.onclick = () => { State.range = Number(c.dataset.range); Router.render(); });
-
-    const cutoff = State.range === 0 ? '0000-00-00' : daysAgo(State.range);
-    const ms = Stats.sortedMeasurements().filter(m => m.date >= cutoff);
-    const ws = [...Store.data.workouts].sort((a, b) => a.date.localeCompare(b.date)).filter(w => w.date >= cutoff);
-    const first = ms[0], last = ms[ms.length - 1];
-
-    const dW = first && last ? round1(last.weight - first.weight) : 0;
-    const vol = ws.reduce((t, w) => t + Stats.workoutVolume(w), 0);
-    $('#progStats').innerHTML =
-      statCard('Δ Peso', `${dW > 0 ? '+' : ''}${dW}<small> kg</small>`, 'Nel periodo', dW <= 0 ? 'delta-down' : 'delta-up', 'scale', 'ico-emerald') +
-      statCard('Sessioni', ws.length, `${Math.round(ws.reduce((t, w) => t + w.duration, 0) / 60)} ore totali`, 'delta-neutral', 'dumbbell', 'ico-blue') +
-      statCard('Volume', `${Math.round(vol / 1000)}<small> t</small>`, 'Peso sollevato', 'delta-good', 'trending', 'ico-purple') +
-      statCard('Δ Vita', first && last && first.waist != null && last.waist != null ? `${round1(last.waist - first.waist)}<small> cm</small>` : '—', 'Circonferenza', 'delta-down', 'ruler', 'ico-amber');
-
-    Charts.make('pgWeight', {
-      type: 'line',
-      data: { labels: ms.map(m => fmtDateShort(m.date)), datasets: [{ label: 'Peso (kg)', data: ms.map(m => m.weight), borderColor: Charts.colors.emerald, backgroundColor: Charts.gradient('pgWeight', Charts.colors.emerald), fill: true, tension: .35, pointRadius: 3, borderWidth: 2.5 }] },
-      options: Charts.baseOpts(),
-    });
-
-    Charts.make('pgCirc', {
-      type: 'line',
-      data: {
-        labels: ms.map(m => fmtDateShort(m.date)),
-        datasets: [
-          { label: 'Vita', data: ms.map(m => m.waist), borderColor: Charts.colors.emerald, tension: .35, pointRadius: 2, borderWidth: 2, spanGaps: true },
-          { label: 'Petto', data: ms.map(m => m.chest), borderColor: Charts.colors.blue, tension: .35, pointRadius: 2, borderWidth: 2, spanGaps: true },
-          { label: 'Braccio dx', data: ms.map(m => m.armR), borderColor: Charts.colors.purple, tension: .35, pointRadius: 2, borderWidth: 2, spanGaps: true },
-        ],
-      },
-      options: Charts.baseOpts(),
-    });
-
-    const nDays = State.range === 0 ? 30 : Math.min(State.range, 30);
-    const days = [...Array(nDays)].map((_, i) => daysAgo(nDays - 1 - i));
-    Charts.make('pgKcal', {
-      type: 'line',
-      data: { labels: days.map(fmtDateShort), datasets: [{ label: 'kcal', data: days.map(d => Math.round(Stats.dayMacros(d).kcal) || null), borderColor: Charts.colors.amber, backgroundColor: Charts.gradient('pgKcal', Charts.colors.amber), fill: true, tension: .3, pointRadius: 2, borderWidth: 2, spanGaps: true }] },
-      options: Charts.baseOpts(),
-    });
-
-    Charts.make('pgVol', {
-      type: 'bar',
-      data: { labels: ws.map(w => fmtDateShort(w.date)), datasets: [{ label: 'Volume (kg)', data: ws.map(w => Math.round(Stats.workoutVolume(w))), backgroundColor: Charts.colors.blue + 'cc', borderRadius: 8, maxBarThickness: 26 }] },
-      options: Charts.baseOpts(),
-    });
-
-    if (first && last && first !== last) {
-      const rows = M_FIELDS.filter(f => f.key !== 'height' && first[f.key] != null && last[f.key] != null).map(f => {
-        const d = round1(last[f.key] - first[f.key]);
-        const pct = first[f.key] ? round1(d / first[f.key] * 100) : 0;
-        const good = ['waist', 'abdomen', 'hips', 'weight', 'bodyFat', 'neck', 'torso'].includes(f.key) ? d <= 0 : d >= 0;
-        return `<span class="cmp-label">${f.label}</span>
-          <span>${first[f.key]} → ${last[f.key]} ${f.unit}</span>
-          <span class="cmp-delta" style="color:${good ? 'var(--emerald)' : 'var(--red)'}">${d > 0 ? '+' : ''}${d} (${pct > 0 ? '+' : ''}${pct}%)</span>`;
-      }).join('');
-      $('#pgImprovements').innerHTML = `<span class="cmp-h">Misura</span><span class="cmp-h">Valori</span><span class="cmp-h" style="text-align:right">Δ</span>` + rows;
-    } else {
-      $('#pgImprovements').innerHTML = '<span style="color:var(--text-faint);font-size:13px">Dati insufficienti nel periodo selezionato.</span>';
-    }
-  },
-};
-
-/* Campi misure corporee */
+/* Campi misure corporee (etichette bilingui) */
 const M_FIELDS = [
-  { key: 'weight', label: 'Peso', unit: 'kg' }, { key: 'height', label: 'Altezza', unit: 'cm' },
-  { key: 'bodyFat', label: 'Massa grassa', unit: '%' },
-  { key: 'neck', label: 'Collo', unit: 'cm' }, { key: 'shoulders', label: 'Spalle', unit: 'cm' },
-  { key: 'chest', label: 'Petto', unit: 'cm' }, { key: 'torso', label: 'Torace', unit: 'cm' },
-  { key: 'waist', label: 'Vita', unit: 'cm' }, { key: 'abdomen', label: 'Addome', unit: 'cm' },
-  { key: 'hips', label: 'Fianchi', unit: 'cm' },
-  { key: 'armR', label: 'Braccio dx', unit: 'cm' }, { key: 'armL', label: 'Braccio sx', unit: 'cm' },
-  { key: 'forearmR', label: 'Avambraccio dx', unit: 'cm' }, { key: 'forearmL', label: 'Avambraccio sx', unit: 'cm' },
-  { key: 'thighR', label: 'Coscia dx', unit: 'cm' }, { key: 'thighL', label: 'Coscia sx', unit: 'cm' },
-  { key: 'calfR', label: 'Polpaccio dx', unit: 'cm' }, { key: 'calfL', label: 'Polpaccio sx', unit: 'cm' },
+  { key: 'weight', it: 'Peso', en: 'Weight', unit: 'kg' }, { key: 'height', it: 'Altezza', en: 'Height', unit: 'cm' },
+  { key: 'bodyFat', it: 'Massa grassa', en: 'Body fat', unit: '%' },
+  { key: 'neck', it: 'Collo', en: 'Neck', unit: 'cm' }, { key: 'shoulders', it: 'Spalle', en: 'Shoulders', unit: 'cm' },
+  { key: 'chest', it: 'Petto', en: 'Chest', unit: 'cm' }, { key: 'torso', it: 'Torace', en: 'Torso', unit: 'cm' },
+  { key: 'waist', it: 'Vita', en: 'Waist', unit: 'cm' }, { key: 'abdomen', it: 'Addome', en: 'Abdomen', unit: 'cm' },
+  { key: 'hips', it: 'Fianchi', en: 'Hips', unit: 'cm' },
+  { key: 'armR', it: 'Braccio dx', en: 'Right arm', unit: 'cm' }, { key: 'armL', it: 'Braccio sx', en: 'Left arm', unit: 'cm' },
+  { key: 'forearmR', it: 'Avambraccio dx', en: 'Right forearm', unit: 'cm' }, { key: 'forearmL', it: 'Avambraccio sx', en: 'Left forearm', unit: 'cm' },
+  { key: 'thighR', it: 'Coscia dx', en: 'Right thigh', unit: 'cm' }, { key: 'thighL', it: 'Coscia sx', en: 'Left thigh', unit: 'cm' },
+  { key: 'calfR', it: 'Polpaccio dx', en: 'Right calf', unit: 'cm' }, { key: 'calfL', it: 'Polpaccio sx', en: 'Left calf', unit: 'cm' },
 ];
+const fl = f => f[Lang.lang] || f.it;
 
 /* Helper HTML */
 function statCard(label, value, delta, deltaCls, icoName, icoCls) {
@@ -1127,29 +666,537 @@ function emptyState(icoName, title, msg) {
 }
 
 /* =====================================================================
+   PAGINE
+   ===================================================================== */
+const Pages = {
+
+  /* ------------------------------------------------ DASHBOARD */
+  dashboard() {
+    const m = Stats.latestM(), prev = Stats.prevM();
+    const dWeight = m && prev ? round1(m.weight - prev.weight) : 0;
+    const macros = Stats.dayMacros(todayISO());
+    const goals = Store.data.goals;
+    const week = Stats.weekWorkouts();
+    const weekMin = week.reduce((tt, w) => tt + w.duration, 0);
+    const recent = Stats.sortedWorkouts().slice(0, 4);
+    const recentM = [...Stats.sortedMeasurements()].reverse().slice(0, 4);
+    const prs = Stats.personalRecords().slice(0, 5);
+    const nextName = recent[0]?.name.includes('Upper') ? 'Lower A — Squat focus' : 'Upper A — Spinta';
+    const p = Store.data.profile;
+
+    return `
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title"><h1>${t('hi')}${p.firstName ? ', ' + esc(p.firstName) : ''}</h1><p>${t('overview')} ${fmtDate(todayISO())}</p></div>
+        <div class="actions quick-actions">
+          <button class="btn btn-primary" data-quick="misura">${ic('plus')} ${t('qMeasure')}</button>
+          <button class="btn btn-blue" data-quick="workout">${ic('plus')} ${t('qWorkout')}</button>
+          <button class="btn" data-quick="pasto">${ic('plus')} ${t('qMeal')}</button>
+        </div>
+      </div>
+
+      <div class="grid grid-stats">
+        ${statCard(t('curWeight'), m ? `${m.weight}<small> kg</small>` : '—', m && prev ? (dWeight <= 0 ? `↓ ${Math.abs(dWeight)} kg ${t('vsPrev')}` : `↑ +${dWeight} kg ${t('vsPrev')}`) : '', dWeight <= 0 ? 'delta-down' : 'delta-up', 'scale', 'ico-emerald')}
+        ${statCard('BMI', Stats.bmi(m) ?? '—', m ? t('bmiSub') : '', 'delta-good', 'gauge', 'ico-blue')}
+        ${statCard(t('bodyFat'), m?.bodyFat ? `${m.bodyFat}<small> %</small>` : '—', prev?.bodyFat && m?.bodyFat ? `${round1(m.bodyFat - prev.bodyFat)} % ${t('vsPrev')}` : '', 'delta-down', 'percent', 'ico-purple')}
+        ${statCard(t('streak'), `${Stats.streak()}<small> ${t('days')}</small>`, t('streakSub'), 'delta-good', 'flame', 'ico-amber')}
+        ${statCard(t('kcalToday'), `${Math.round(macros.kcal)}<small> kcal</small>`, `${Math.max(0, goals.kcal - Math.round(macros.kcal))} ${t('remaining')}`, 'delta-neutral', 'utensils', 'ico-emerald')}
+        ${statCard(t('workouts7'), `${week.length}<small> / ${goals.weeklyWorkouts}</small>`, `${weekMin} ${t('minTotal')}`, 'delta-neutral', 'dumbbell', 'ico-blue')}
+        ${statCard(t('nextSession'), `<span style="font-size:15px">${esc(nextName)}</span>`, t('nextSub'), 'delta-neutral', 'calendar', 'ico-purple')}
+        ${statCard(t('proteinToday'), `${Math.round(macros.protein)}<small> / ${goals.protein} g</small>`, `${Math.round(macros.protein / goals.protein * 100)}${t('ofGoal')}`, 'delta-good', 'activity', 'ico-amber')}
+      </div>
+
+      <div class="grid grid-2 mt">
+        <div class="card"><div class="card-head-row"><div><div class="card-title">${t('weightTrend')}</div><div class="card-sub">${t('weightTrendSub')}</div></div></div>
+          <div class="chart-wrap"><canvas id="chWeight"></canvas></div></div>
+        <div class="card"><div class="card-title">${t('volTitle')}</div><div class="card-sub">${t('volSub')}</div>
+          <div class="chart-wrap"><canvas id="chVolume"></canvas></div></div>
+        <div class="card"><div class="card-title">${t('dailyKcal')}</div><div class="card-sub">${t('kcalSub')}</div>
+          <div class="chart-wrap"><canvas id="chKcal"></canvas></div></div>
+        <div class="card"><div class="card-title">${t('macroToday')}</div><div class="card-sub">${t('distribution')}</div>
+          <div class="chart-wrap"><canvas id="chMacro"></canvas></div></div>
+      </div>
+
+      <div class="grid grid-3 mt">
+        <div class="card"><div class="card-title">${t('lastWorkouts')}</div><div class="card-sub">${t('recentSessions')}</div>
+          ${recent.length ? recent.map(w => `<div class="list-row"><div class="list-ico ico-blue">${ic('dumbbell')}</div>
+            <div class="list-main"><b>${esc(w.name)}</b><span>${fmtDateShort(w.date)} · ${w.exercises.length} ${t('exercises')}</span></div>
+            <div class="list-end"><b>${Math.round(Stats.workoutVolume(w)).toLocaleString(locale())} kg</b>${w.duration} min</div></div>`).join('')
+          : emptyState('dumbbell', t('noWork'), t('noWorkP'))}
+        </div>
+        <div class="card"><div class="card-title">${t('lastMeasures')}</div><div class="card-sub">${t('weightWaist')}</div>
+          ${recentM.length ? recentM.map(x => `<div class="list-row"><div class="list-ico ico-emerald">${ic('ruler')}</div>
+            <div class="list-main"><b>${x.weight} kg</b><span>${fmtDateShort(x.date)}</span></div>
+            <div class="list-end"><b>${x.waist ?? '—'} cm</b>${t('waistLow')}</div></div>`).join('')
+          : emptyState('ruler', t('noMeas'), t('noMeasP'))}
+        </div>
+        <div class="card"><div class="card-title">${t('prs')}</div><div class="card-sub">${t('prSub')}</div>
+          ${prs.length ? prs.map((p2, i) => `<div class="pr-item"><span class="pr-rank ${['', 'r2', 'r3', 'rn', 'rn'][i]}">${i + 1}</span>
+            <div><div class="pr-name">${esc(p2.name)}</div><div class="pr-detail">${p2.weight} kg × ${p2.reps} · ${fmtDateShort(p2.date)}</div></div>
+            <span class="pr-value">${Math.round(p2.orm)} kg</span></div>`).join('')
+          : emptyState('trophy', t('noPr'), t('noPrP'))}
+        </div>
+      </div>
+    </div>`;
+  },
+
+  dashboardCharts() {
+    const ms = Stats.sortedMeasurements();
+    Charts.make('chWeight', {
+      type: 'line',
+      data: {
+        labels: ms.map(m => fmtDateShort(m.date)),
+        datasets: [{
+          label: t('weightKg'), data: ms.map(m => m.weight),
+          borderColor: Charts.colors.emerald, backgroundColor: Charts.gradient('chWeight', Charts.colors.emerald),
+          fill: true, tension: .35, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5,
+        }],
+      },
+      options: Charts.baseOpts(),
+    });
+
+    const ws = [...Store.data.workouts].sort((a, b) => a.date.localeCompare(b.date));
+    Charts.make('chVolume', {
+      type: 'bar',
+      data: {
+        labels: ws.map(w => fmtDateShort(w.date)),
+        datasets: [{ label: t('volumeKg'), data: ws.map(w => Math.round(Stats.workoutVolume(w))), backgroundColor: Charts.colors.blue + 'cc', borderRadius: 8, maxBarThickness: 26 }],
+      },
+      options: Charts.baseOpts(),
+    });
+
+    const days = [...Array(7)].map((_, i) => daysAgo(6 - i));
+    Charts.make('chKcal', {
+      type: 'bar',
+      data: {
+        labels: days.map(fmtDateShort),
+        datasets: [
+          { label: t('kcalLbl2'), data: days.map(d => Math.round(Stats.dayMacros(d).kcal)), backgroundColor: Charts.colors.emerald + 'cc', borderRadius: 8, maxBarThickness: 30 },
+          { label: t('goalLbl2'), data: days.map(() => Store.data.goals.kcal), type: 'line', borderColor: Charts.colors.amber, borderDash: [6, 5], pointRadius: 0, borderWidth: 2 },
+        ],
+      },
+      options: Charts.baseOpts(),
+    });
+
+    const mac = Stats.dayMacros(todayISO());
+    Charts.make('chMacro', {
+      type: 'doughnut',
+      data: {
+        labels: [t('proteinS'), t('carbsS'), t('fatS')],
+        datasets: [{ data: [mac.protein * 4, mac.carbs * 4, mac.fat * 9].map(Math.round), backgroundColor: [Charts.colors.emerald, Charts.colors.blue, Charts.colors.amber], borderWidth: 0, hoverOffset: 8 }],
+      },
+      options: { ...Charts.baseOpts({ cutout: '62%' }), scales: {} },
+    });
+  },
+
+  /* ------------------------------------------------ MISURE */
+  misure() {
+    return `
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title"><h1>${t('navMeas')}</h1><p>${t('measSub')}</p></div>
+        <div class="actions">
+          <button class="btn" id="btnCompare">${ic('swap')} ${t('cmpDates')}</button>
+          <button class="btn btn-primary" id="btnAddM">${ic('plus')} ${t('newMeas')}</button>
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card"><div class="card-head-row"><div><div class="card-title">${t('trendTime')}</div><div class="card-sub">${t('selectMeasure')}</div></div>
+          <select id="mMetric" class="table-search" style="width:auto">
+            ${M_FIELDS.map(f => `<option value="${f.key}">${fl(f)}</option>`).join('')}
+          </select></div>
+          <div class="chart-wrap"><canvas id="chMeasure"></canvas></div></div>
+        <div class="card"><div class="card-title">${t('deltasPct')}</div><div class="card-sub">${t('fullHistory')}</div>
+          <div class="chart-wrap"><canvas id="chDeltas"></canvas></div></div>
+      </div>
+
+      <div class="card table-card mt">
+        <div class="table-toolbar"><div class="card-title">${t('historyMeas')}</div>
+          <div class="spacer">
+            <input class="table-search" id="mSearch" placeholder="${t('searchMini')}">
+            <button class="btn btn-sm" id="mCsv">${ic('download')} CSV</button>
+            <button class="btn btn-sm" id="mPdf">${ic('download')} PDF</button>
+          </div></div>
+        <div id="mTable"></div>
+      </div>
+    </div>`;
+  },
+
+  misureMount() {
+    const F = k => M_FIELDS.find(f => f.key === k);
+    const cols = [
+      { key: 'date', label: t('date'), render: r => fmtDate(r.date) },
+      { key: 'weight', label: t('weightKg') },
+      { key: 'bodyFat', label: t('fatPct'), render: r => r.bodyFat ?? '—' },
+      { key: 'waist', label: fl(F('waist')), render: r => r.waist ?? '—' },
+      { key: 'chest', label: fl(F('chest')), render: r => r.chest ?? '—' },
+      { key: 'hips', label: fl(F('hips')), render: r => r.hips ?? '—' },
+      { key: 'armR', label: fl(F('armR')), render: r => r.armR ?? '—' },
+      { key: 'thighR', label: fl(F('thighR')), render: r => r.thighR ?? '—' },
+    ];
+    const table = renderTable({
+      mountId: 'mTable', columns: cols, rows: Store.data.measurements, csvName: 'misure',
+      onEdit: id => measurementForm(Store.data.measurements.find(x => x.id === id)),
+      onDelete: id => confirmDialog(t('delMeasConfirm'), () => {
+        Store.data.measurements = Store.data.measurements.filter(x => x.id !== id);
+        Store.save(); Toast.show(t('measDeleted')); Router.render();
+      }),
+      emptyMsg: t('firstMeasHint'),
+    });
+    $('#mSearch').oninput = e => table.search(e.target.value);
+    $('#mCsv').onclick = () => table.exportCSV();
+    $('#mPdf').onclick = () => window.print();
+    $('#btnAddM').onclick = () => measurementForm();
+    $('#btnCompare').onclick = () => compareDialog();
+
+    const drawMetric = key => {
+      Charts.registry = Charts.registry.filter(c => (c.canvas.id === 'chMeasure' ? (c.destroy(), false) : true));
+      const ms = Stats.sortedMeasurements();
+      const f = F(key);
+      Charts.make('chMeasure', {
+        type: 'line',
+        data: {
+          labels: ms.map(m => fmtDateShort(m.date)),
+          datasets: [{ label: `${fl(f)} (${f.unit})`, data: ms.map(m => m[key]), borderColor: Charts.colors.blue, backgroundColor: Charts.gradient('chMeasure', Charts.colors.blue), fill: true, tension: .35, pointRadius: 3, borderWidth: 2.5, spanGaps: true }],
+        },
+        options: Charts.baseOpts(),
+      });
+    };
+    drawMetric('weight');
+    $('#mMetric').onchange = e => drawMetric(e.target.value);
+
+    const s = Stats.sortedMeasurements();
+    if (s.length >= 2) {
+      const first = s[0], last = s[s.length - 1];
+      const keys = M_FIELDS.filter(f => f.key !== 'height' && first[f.key] != null && last[f.key] != null).slice(0, 10);
+      Charts.make('chDeltas', {
+        type: 'bar',
+        data: {
+          labels: keys.map(fl),
+          datasets: [{
+            label: t('changePct'),
+            data: keys.map(f => round1((last[f.key] - first[f.key]) / first[f.key] * 100)),
+            backgroundColor: keys.map(f => (last[f.key] - first[f.key]) <= 0 ? Charts.colors.emerald + 'cc' : Charts.colors.blue + 'cc'),
+            borderRadius: 8, maxBarThickness: 26,
+          }],
+        },
+        options: { ...Charts.baseOpts(), indexAxis: 'y' },
+      });
+    }
+  },
+
+  /* ------------------------------------------------ ALLENAMENTO */
+  allenamento() {
+    const ws = Stats.sortedWorkouts();
+    const totVol = ws.reduce((tt, w) => tt + Stats.workoutVolume(w), 0);
+    const totEx = ws.reduce((tt, w) => tt + w.exercises.length, 0);
+
+    return `
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title"><h1>${t('navWork')}</h1><p>${t('workSub')}</p></div>
+        <div class="actions">
+          <button class="btn" id="btnTemplates">${ic('clipboard')} ${t('templates')} (${Store.data.templates.length})</button>
+          <button class="btn btn-primary" id="btnAddW">${ic('plus')} ${t('newWork')}</button>
+        </div>
+      </div>
+
+      <div class="grid grid-stats">
+        ${statCard(t('totSessions'), ws.length, t('inHistory'), 'delta-neutral', 'calendar', 'ico-blue')}
+        ${statCard(t('totVolume'), `${Math.round(totVol / 1000).toLocaleString(locale())}<small> t</small>`, t('liftedTotal'), 'delta-good', 'trending', 'ico-emerald')}
+        ${statCard(t('exDone'), totEx, t('avgPerSession', round1(totEx / (ws.length || 1))), 'delta-neutral', 'target', 'ico-purple')}
+        ${statCard(t('avgDuration'), `${Math.round(ws.reduce((tt, w) => tt + w.duration, 0) / (ws.length || 1))}<small> min</small>`, t('perSession'), 'delta-neutral', 'clock', 'ico-amber')}
+      </div>
+
+      <div class="grid grid-2 mt">
+        <div class="card"><div class="card-title">${t('volOverTime')}</div><div class="card-sub">${t('kgPerSession')}</div>
+          <div class="chart-wrap"><canvas id="chWVol"></canvas></div></div>
+        <div class="card"><div class="card-title">${t('muscleFreq')}</div><div class="card-sub">${t('setsPerGroup')}</div>
+          <div class="chart-wrap"><canvas id="chWRadar"></canvas></div></div>
+      </div>
+
+      <div class="card table-card mt">
+        <div class="table-toolbar"><div class="card-title">${t('workHistory')}</div>
+          <div class="spacer">
+            <input class="table-search" id="wSearch" placeholder="${t('searchMini')}">
+            <button class="btn btn-sm" id="wCsv">${ic('download')} CSV</button>
+          </div></div>
+        <div id="wTable"></div>
+      </div>
+    </div>`;
+  },
+
+  allenamentoMount() {
+    const rows = Stats.sortedWorkouts().map(w => ({
+      ...w, volume: Math.round(Stats.workoutVolume(w)), nEx: w.exercises.length,
+    }));
+    const table = renderTable({
+      mountId: 'wTable', csvName: 'allenamenti', rows,
+      columns: [
+        { key: 'date', label: t('date'), render: r => fmtDate(r.date) },
+        { key: 'name', label: t('name'), render: r => `<b>${esc(r.name)}</b>` },
+        { key: 'group', label: t('group'), render: r => `<span class="badge badge-blue">${esc(r.group)}</span>` },
+        { key: 'nEx', label: t('exsCol') },
+        { key: 'volume', label: t('volumeKg'), render: r => r.volume.toLocaleString(locale()) },
+        { key: 'duration', label: t('durationMin') },
+      ],
+      onEdit: id => workoutForm(Store.data.workouts.find(x => x.id === id)),
+      onDelete: id => confirmDialog(t('delWorkConfirm'), () => {
+        Store.data.workouts = Store.data.workouts.filter(x => x.id !== id);
+        Store.save(); Toast.show(t('workDeleted')); Router.render();
+      }),
+      emptyMsg: t('firstWorkHint'),
+    });
+    $('#wSearch').oninput = e => table.search(e.target.value);
+    $('#wCsv').onclick = () => table.exportCSV();
+    $('#btnAddW').onclick = () => workoutForm();
+    $('#btnTemplates').onclick = () => templatesDialog();
+
+    const ws = [...Store.data.workouts].sort((a, b) => a.date.localeCompare(b.date));
+    Charts.make('chWVol', {
+      type: 'line',
+      data: {
+        labels: ws.map(w => fmtDateShort(w.date)),
+        datasets: [{ label: t('volumeKg'), data: ws.map(w => Math.round(Stats.workoutVolume(w))), borderColor: Charts.colors.emerald, backgroundColor: Charts.gradient('chWVol', Charts.colors.emerald), fill: true, tension: .35, pointRadius: 3, borderWidth: 2.5 }],
+      },
+      options: Charts.baseOpts(),
+    });
+
+    const freq = Stats.muscleFrequency();
+    const labels = Object.keys(freq);
+    if (labels.length) {
+      Charts.make('chWRadar', {
+        type: 'radar',
+        data: {
+          labels,
+          datasets: [{ label: t('totalSets'), data: labels.map(l => freq[l]), borderColor: Charts.colors.purple, backgroundColor: Charts.colors.purple + '33', pointBackgroundColor: Charts.colors.purple, borderWidth: 2 }],
+        },
+        options: {
+          ...Charts.baseOpts(), scales: {
+            r: {
+              grid: { color: getComputedStyle(document.documentElement).getPropertyValue('--border').trim() },
+              pointLabels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-soft').trim(), font: { family: 'Inter', size: 10.5 } },
+              ticks: { display: false },
+            },
+          },
+        },
+      });
+    }
+  },
+
+  /* ------------------------------------------------ ALIMENTAZIONE */
+  alimentazione() {
+    const date = State.foodDate;
+    const mac = Stats.dayMacros(date);
+    const g = Store.data.goals;
+    const water = Store.data.water[date] || 0;
+    const meals = Stats.mealsFor(date);
+
+    const mealBlocks = MEAL_KEYS.map(mn => {
+      const foods = meals.filter(m => m.meal === mn);
+      const kcal = foods.reduce((tt, f) => tt + f.kcal, 0);
+      return `<div class="card mt">
+        <div class="card-head-row"><div><div class="card-title">${mealLabel(mn)}</div><div class="card-sub">${Math.round(kcal)} kcal</div></div>
+          <button class="btn btn-sm btn-primary" data-addfood="${mn}">${ic('plus')} ${t('foodItem')}</button></div>
+        ${foods.length ? foods.map(f => `<div class="list-row"><div class="list-ico ico-emerald">${ic('utensils')}</div>
+          <div class="list-main"><b>${esc(f.name)}</b><span>${esc(f.qty)} · P ${f.protein}g · C ${f.carbs}g · G ${f.fat}g</span></div>
+          <div class="list-end"><b>${Math.round(f.kcal)} kcal</b></div>
+          <div class="td-actions"><button class="btn-icon" data-editfood="${f.id}">${ic('pencil')}</button><button class="btn-icon danger" data-delfood="${f.id}">${ic('trash')}</button></div>
+        </div>`).join('') : `<div class="empty-state" style="padding:18px"><p>${t('noFood')}</p></div>`}
+      </div>`;
+    }).join('');
+
+    return `
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title"><h1>${t('navFood')}</h1><p>${t('foodSub')}</p></div>
+        <div class="actions">
+          <div class="field" style="margin:0"><input type="date" id="foodDate" value="${date}" max="${todayISO()}" style="height:40px"></div>
+        </div>
+      </div>
+
+      <div class="grid grid-stats">
+        ${statCard(t('kcalLbl2'), `${Math.round(mac.kcal)}<small> / ${g.kcal}</small>`, `${Math.max(0, g.kcal - Math.round(mac.kcal))} ${t('kcalRemaining')}`, mac.kcal > g.kcal ? 'delta-up' : 'delta-good', 'flame', 'ico-emerald')}
+        ${statCard(t('proteinS'), `${Math.round(mac.protein)}<small> / ${g.protein} g</small>`, `${Math.round(mac.protein / g.protein * 100)}%`, 'delta-good', 'activity', 'ico-blue')}
+        ${statCard(t('carbsS'), `${Math.round(mac.carbs)}<small> / ${g.carbs} g</small>`, `${Math.round(mac.carbs / g.carbs * 100)}%`, 'delta-neutral', 'target', 'ico-amber')}
+        ${statCard(t('fatS'), `${Math.round(mac.fat)}<small> / ${g.fat} g</small>`, `${Math.round(mac.fat / g.fat * 100)}%`, 'delta-neutral', 'droplet', 'ico-purple')}
+      </div>
+
+      <div class="grid grid-2 mt">
+        <div class="card">
+          <div class="card-title">${t('nutriGoals')}</div><div class="card-sub">${t('dailyProgress')}</div>
+          ${macroBar(t('kcalLbl2'), Math.round(mac.kcal), g.kcal, 'kcal')}
+          ${macroBar(t('proteinS'), Math.round(mac.protein), g.protein, 'g')}
+          ${macroBar(t('carbsS'), Math.round(mac.carbs), g.carbs, 'g')}
+          ${macroBar(t('fatS'), Math.round(mac.fat), g.fat, 'g')}
+        </div>
+        <div class="card">
+          <div class="card-head-row"><div><div class="card-title">${t('water')}</div><div class="card-sub">${water} / ${g.waterGlasses} ${t('glasses')} (${round1(water * 0.25)} L)</div></div></div>
+          <div class="water-glasses">
+            ${[...Array(g.waterGlasses)].map((_, i) => `<button class="water-glass ${i < water ? 'full' : ''}" data-water="${i + 1}">${ic('droplet')}</button>`).join('')}
+          </div>
+          <div class="card-title mt" style="font-size:14px">${t('weekSummary')}</div>
+          <div class="chart-wrap short"><canvas id="chWeekKcal"></canvas></div>
+        </div>
+      </div>
+
+      ${mealBlocks}
+    </div>`;
+  },
+
+  alimentazioneMount() {
+    $('#foodDate').onchange = e => { State.foodDate = e.target.value; Router.render(); };
+    $$('[data-addfood]').forEach(b => b.onclick = () => foodForm(null, b.dataset.addfood));
+    $$('[data-editfood]').forEach(b => b.onclick = () => foodForm(Store.data.meals.find(m => m.id === b.dataset.editfood)));
+    $$('[data-delfood]').forEach(b => b.onclick = () => confirmDialog(t('delFoodConfirm'), () => {
+      Store.data.meals = Store.data.meals.filter(m => m.id !== b.dataset.delfood);
+      Store.save(); Toast.show(t('foodDeleted')); Router.render();
+    }));
+    $$('[data-water]').forEach(b => b.onclick = () => {
+      const n = Number(b.dataset.water);
+      const cur = Store.data.water[State.foodDate] || 0;
+      Store.data.water[State.foodDate] = (n === cur) ? n - 1 : n;
+      Store.save(); Router.render();
+    });
+
+    const days = [...Array(7)].map((_, i) => daysAgo(6 - i));
+    Charts.make('chWeekKcal', {
+      type: 'bar',
+      data: {
+        labels: days.map(fmtDateShort),
+        datasets: [
+          { label: t('proteinS') + ' (g)', data: days.map(d => Math.round(Stats.dayMacros(d).protein)), backgroundColor: Charts.colors.emerald + 'cc', borderRadius: 6, maxBarThickness: 22 },
+          { label: t('carbsS') + ' (g)', data: days.map(d => Math.round(Stats.dayMacros(d).carbs)), backgroundColor: Charts.colors.blue + 'cc', borderRadius: 6, maxBarThickness: 22 },
+          { label: t('fatS') + ' (g)', data: days.map(d => Math.round(Stats.dayMacros(d).fat)), backgroundColor: Charts.colors.amber + 'cc', borderRadius: 6, maxBarThickness: 22 },
+        ],
+      },
+      options: { ...Charts.baseOpts(), scales: { x: { stacked: true, grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }, y: { stacked: true, ticks: { color: '#94a3b8', font: { size: 10 } }, border: { display: false } } } },
+    });
+  },
+
+  /* ------------------------------------------------ PROGRESSI */
+  progressi() {
+    return `
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title"><h1>${t('navProg')}</h1><p>${t('progSub')}</p></div>
+        <div class="actions chip-row" id="rangeChips">
+          <button class="chip ${State.range === 7 ? 'active' : ''}" data-range="7">${t('week')}</button>
+          <button class="chip ${State.range === 30 ? 'active' : ''}" data-range="30">${t('month')}</button>
+          <button class="chip ${State.range === 365 ? 'active' : ''}" data-range="365">${t('year')}</button>
+          <button class="chip ${State.range === 0 ? 'active' : ''}" data-range="0">${t('all')}</button>
+        </div>
+      </div>
+
+      <div id="progStats" class="grid grid-stats"></div>
+
+      <div class="grid grid-2 mt">
+        <div class="card"><div class="card-title">${fl(M_FIELDS[0])}</div><div class="card-sub">${t('selPeriod')}</div>
+          <div class="chart-wrap"><canvas id="pgWeight"></canvas></div></div>
+        <div class="card"><div class="card-title">${t('keyGirths')}</div><div class="card-sub">${t('girthsSub')}</div>
+          <div class="chart-wrap"><canvas id="pgCirc"></canvas></div></div>
+        <div class="card"><div class="card-title">${t('kcalLbl2')}</div><div class="card-sub">${t('dailyIntake')}</div>
+          <div class="chart-wrap"><canvas id="pgKcal"></canvas></div></div>
+        <div class="card"><div class="card-title">${t('volTitle')}</div><div class="card-sub">${t('loadTrend')}</div>
+          <div class="chart-wrap"><canvas id="pgVol"></canvas></div></div>
+      </div>
+
+      <div class="card mt"><div class="card-title">${t('pctImprove')}</div><div class="card-sub">${t('firstToLast')}</div>
+        <div id="pgImprovements" class="cmp-grid" style="grid-template-columns:1fr auto auto"></div></div>
+    </div>`;
+  },
+
+  progressiMount() {
+    $$('#rangeChips .chip').forEach(c => c.onclick = () => { State.range = Number(c.dataset.range); Router.render(); });
+
+    const cutoff = State.range === 0 ? '0000-00-00' : daysAgo(State.range);
+    const ms = Stats.sortedMeasurements().filter(m => m.date >= cutoff);
+    const ws = [...Store.data.workouts].sort((a, b) => a.date.localeCompare(b.date)).filter(w => w.date >= cutoff);
+    const first = ms[0], last = ms[ms.length - 1];
+
+    const dW = first && last ? round1(last.weight - first.weight) : 0;
+    const vol = ws.reduce((tt, w) => tt + Stats.workoutVolume(w), 0);
+    const F = k => M_FIELDS.find(f => f.key === k);
+    $('#progStats').innerHTML =
+      statCard('Δ ' + fl(F('weight')), `${dW > 0 ? '+' : ''}${dW}<small> kg</small>`, t('inPeriod'), dW <= 0 ? 'delta-down' : 'delta-up', 'scale', 'ico-emerald') +
+      statCard(t('sessions'), ws.length, `${Math.round(ws.reduce((tt, w) => tt + w.duration, 0) / 60)} ${t('hoursTotal')}`, 'delta-neutral', 'dumbbell', 'ico-blue') +
+      statCard('Volume', `${Math.round(vol / 1000)}<small> t</small>`, t('lifted'), 'delta-good', 'trending', 'ico-purple') +
+      statCard('Δ ' + fl(F('waist')), first && last && first.waist != null && last.waist != null ? `${round1(last.waist - first.waist)}<small> cm</small>` : '—', t('girth'), 'delta-down', 'ruler', 'ico-amber');
+
+    Charts.make('pgWeight', {
+      type: 'line',
+      data: { labels: ms.map(m => fmtDateShort(m.date)), datasets: [{ label: t('weightKg'), data: ms.map(m => m.weight), borderColor: Charts.colors.emerald, backgroundColor: Charts.gradient('pgWeight', Charts.colors.emerald), fill: true, tension: .35, pointRadius: 3, borderWidth: 2.5 }] },
+      options: Charts.baseOpts(),
+    });
+
+    Charts.make('pgCirc', {
+      type: 'line',
+      data: {
+        labels: ms.map(m => fmtDateShort(m.date)),
+        datasets: [
+          { label: fl(F('waist')), data: ms.map(m => m.waist), borderColor: Charts.colors.emerald, tension: .35, pointRadius: 2, borderWidth: 2, spanGaps: true },
+          { label: fl(F('chest')), data: ms.map(m => m.chest), borderColor: Charts.colors.blue, tension: .35, pointRadius: 2, borderWidth: 2, spanGaps: true },
+          { label: fl(F('armR')), data: ms.map(m => m.armR), borderColor: Charts.colors.purple, tension: .35, pointRadius: 2, borderWidth: 2, spanGaps: true },
+        ],
+      },
+      options: Charts.baseOpts(),
+    });
+
+    const nDays = State.range === 0 ? 30 : Math.min(State.range, 30);
+    const days = [...Array(nDays)].map((_, i) => daysAgo(nDays - 1 - i));
+    Charts.make('pgKcal', {
+      type: 'line',
+      data: { labels: days.map(fmtDateShort), datasets: [{ label: 'kcal', data: days.map(d => Math.round(Stats.dayMacros(d).kcal) || null), borderColor: Charts.colors.amber, backgroundColor: Charts.gradient('pgKcal', Charts.colors.amber), fill: true, tension: .3, pointRadius: 2, borderWidth: 2, spanGaps: true }] },
+      options: Charts.baseOpts(),
+    });
+
+    Charts.make('pgVol', {
+      type: 'bar',
+      data: { labels: ws.map(w => fmtDateShort(w.date)), datasets: [{ label: t('volumeKg'), data: ws.map(w => Math.round(Stats.workoutVolume(w))), backgroundColor: Charts.colors.blue + 'cc', borderRadius: 8, maxBarThickness: 26 }] },
+      options: Charts.baseOpts(),
+    });
+
+    if (first && last && first !== last) {
+      const rows = M_FIELDS.filter(f => f.key !== 'height' && first[f.key] != null && last[f.key] != null).map(f => {
+        const d = round1(last[f.key] - first[f.key]);
+        const pct = first[f.key] ? round1(d / first[f.key] * 100) : 0;
+        const good = ['waist', 'abdomen', 'hips', 'weight', 'bodyFat', 'neck', 'torso'].includes(f.key) ? d <= 0 : d >= 0;
+        return `<span class="cmp-label">${fl(f)}</span>
+          <span>${first[f.key]} → ${last[f.key]} ${f.unit}</span>
+          <span class="cmp-delta" style="color:${good ? 'var(--emerald)' : 'var(--red)'}">${d > 0 ? '+' : ''}${d} (${pct > 0 ? '+' : ''}${pct}%)</span>`;
+      }).join('');
+      $('#pgImprovements').innerHTML = `<span class="cmp-h">${t('measureCol')}</span><span class="cmp-h">${t('valuesCol')}</span><span class="cmp-h" style="text-align:right">Δ</span>` + rows;
+    } else {
+      $('#pgImprovements').innerHTML = `<span style="color:var(--text-faint);font-size:13px">${t('insufficient')}</span>`;
+    }
+  },
+};
+
+/* =====================================================================
    FORMS (modali)
    ===================================================================== */
 function measurementForm(existing = null) {
   const m = existing || Object.fromEntries(M_FIELDS.map(f => [f.key, f.key === 'height' ? (Store.data.profile.height ?? '') : '']));
   const body = `<div class="form-grid">
-    <div class="field full"><label>Data *</label><input type="date" id="fmDate" data-req value="${existing ? existing.date : todayISO()}" max="${todayISO()}"><div class="err-msg">Campo obbligatorio</div></div>
-    ${M_FIELDS.map(f => `<div class="field"><label>${f.label} (${f.unit})${f.key === 'weight' ? ' *' : ''}</label>
-      <input type="number" step="0.1" min="0" id="fm_${f.key}" ${f.key === 'weight' ? 'data-req data-pos' : ''} value="${m[f.key] ?? ''}" placeholder="0.0"><div class="err-msg">Valore non valido</div></div>`).join('')}
+    <div class="field full"><label>${t('date')} *</label><input type="date" id="fmDate" data-req value="${existing ? existing.date : todayISO()}" max="${todayISO()}"><div class="err-msg">${t('required')}</div></div>
+    ${M_FIELDS.map(f => `<div class="field"><label>${fl(f)} (${f.unit})${f.key === 'weight' ? ' *' : ''}</label>
+      <input type="number" step="0.1" min="0" id="fm_${f.key}" ${f.key === 'weight' ? 'data-req data-pos' : ''} value="${m[f.key] ?? ''}" placeholder="0.0"><div class="err-msg">${t('invalidVal')}</div></div>`).join('')}
   </div>`;
 
   Modal.open({
-    title: existing ? 'Modifica misurazione' : 'Nuova misurazione', body, wide: true,
-    footer: `<button class="btn" onclick="Modal.close()">Annulla</button><button class="btn btn-primary" id="fmSave">Salva</button>`,
+    title: existing ? t('editMeas') : t('newMeas'), body, wide: true,
+    footer: `<button class="btn" onclick="Modal.close()">${t('cancel')}</button><button class="btn btn-primary" id="fmSave">${t('save')}</button>`,
     onMount(root) {
       $('#fmSave', root).onclick = () => {
-        if (!validateForm(root)) { Toast.show('Compila i campi obbligatori', 'error'); return; }
+        if (!validateForm(root)) { Toast.show(t('reqFields'), 'error'); return; }
         const rec = { id: existing?.id || uid(), date: $('#fmDate', root).value };
         M_FIELDS.forEach(f => { const v = $('#fm_' + f.key, root).value; rec[f.key] = v === '' ? null : Number(v); });
         if (existing) {
           const i = Store.data.measurements.findIndex(x => x.id === existing.id);
           Store.data.measurements[i] = rec;
         } else Store.data.measurements.push(rec);
-        Store.save(); Modal.close(); Toast.show(existing ? 'Misurazione aggiornata' : 'Misurazione salvata'); Router.render();
+        Store.save(); Modal.close(); Toast.show(existing ? t('measUpdated') : t('measSaved')); Router.render();
       };
     },
   });
@@ -1158,17 +1205,17 @@ function measurementForm(existing = null) {
 function exerciseBlockHTML(e = {}) {
   const id = e.id || uid();
   return `<div class="ex-block" data-exid="${id}">
-    <div class="ex-block-head"><b>Esercizio</b><button class="btn-icon danger ex-del" title="Rimuovi">${ic('trash')}</button></div>
+    <div class="ex-block-head"><b>${t('exercise')}</b><button class="btn-icon danger ex-del" title="${t('del')}">${ic('trash')}</button></div>
     <div class="form-grid">
-      <div class="field full"><label>Nome *</label><input class="exf" data-f="name" data-req value="${esc(e.name || '')}" placeholder="Es. Panca piana"><div class="err-msg">Obbligatorio</div></div>
-      <div class="field"><label>Gruppo muscolare</label><input class="exf" data-f="group" value="${esc(e.group || '')}" placeholder="Petto"></div>
-      <div class="field"><label>Serie *</label><input type="number" min="1" class="exf" data-f="sets" data-req data-pos value="${e.sets ?? 3}"><div class="err-msg">Obbligatorio</div></div>
-      <div class="field"><label>Ripetizioni *</label><input type="number" min="1" class="exf" data-f="reps" data-req data-pos value="${e.reps ?? 10}"><div class="err-msg">Obbligatorio</div></div>
-      <div class="field"><label>Peso (kg)</label><input type="number" step="0.5" min="0" class="exf" data-f="weight" value="${e.weight ?? 0}"></div>
-      <div class="field"><label>Recupero (s)</label><input type="number" min="0" step="15" class="exf" data-f="rest" value="${e.rest ?? 90}"></div>
+      <div class="field full"><label>${t('name')} *</label><input class="exf" data-f="name" data-req value="${esc(e.name || '')}" placeholder="${t('phExName')}"><div class="err-msg">${t('required')}</div></div>
+      <div class="field"><label>${t('muscleGroup')}</label><input class="exf" data-f="group" value="${esc(e.group || '')}" placeholder="Petto"></div>
+      <div class="field"><label>${t('sets')} *</label><input type="number" min="1" class="exf" data-f="sets" data-req data-pos value="${e.sets ?? 3}"><div class="err-msg">${t('required')}</div></div>
+      <div class="field"><label>${t('reps')} *</label><input type="number" min="1" class="exf" data-f="reps" data-req data-pos value="${e.reps ?? 10}"><div class="err-msg">${t('required')}</div></div>
+      <div class="field"><label>${t('weightKg')}</label><input type="number" step="0.5" min="0" class="exf" data-f="weight" value="${e.weight ?? 0}"></div>
+      <div class="field"><label>${t('rest')}</label><input type="number" min="0" step="15" class="exf" data-f="rest" value="${e.rest ?? 90}"></div>
       <div class="field full"><label>RPE: <span class="range-val">${e.rpe ?? 8}</span></label>
         <input type="range" min="1" max="10" class="exf rpe-slider" data-f="rpe" value="${e.rpe ?? 8}"></div>
-      <div class="field full"><label>Note</label><input class="exf" data-f="notes" value="${esc(e.notes || '')}" placeholder="Opzionale"></div>
+      <div class="field full"><label>${t('notes')}</label><input class="exf" data-f="notes" value="${esc(e.notes || '')}" placeholder="${t('optional')}"></div>
     </div>
   </div>`;
 }
@@ -1177,25 +1224,25 @@ function workoutForm(existing = null, fromTemplate = null) {
   const w = existing || fromTemplate || { name: '', group: '', duration: 60, notes: '', exercises: [{}] };
   const body = `
     <div class="form-grid">
-      <div class="field full"><label>Nome allenamento *</label><input id="fwName" data-req value="${esc(w.name)}" placeholder="Es. Upper A — Spinta"><div class="err-msg">Obbligatorio</div></div>
-      <div class="field"><label>Data *</label><input type="date" id="fwDate" data-req value="${existing?.date || todayISO()}" max="${todayISO()}"><div class="err-msg">Obbligatorio</div></div>
-      <div class="field"><label>Gruppo muscolare</label>
+      <div class="field full"><label>${t('workName')} *</label><input id="fwName" data-req value="${esc(w.name)}" placeholder="${t('phWorkName')}"><div class="err-msg">${t('required')}</div></div>
+      <div class="field"><label>${t('date')} *</label><input type="date" id="fwDate" data-req value="${existing?.date || todayISO()}" max="${todayISO()}"><div class="err-msg">${t('required')}</div></div>
+      <div class="field"><label>${t('muscleGroup')}</label>
         <select id="fwGroup">${['Upper Body', 'Lower Body', 'Full Body', 'Push', 'Pull', 'Legs', 'Altro'].map(g => `<option ${w.group === g ? 'selected' : ''}>${g}</option>`).join('')}</select></div>
-      <div class="field"><label>Durata (min)</label><input type="number" min="0" id="fwDur" value="${w.duration}"></div>
-      <div class="field full"><label>Note</label><textarea id="fwNotes" placeholder="Opzionale">${esc(w.notes || '')}</textarea></div>
+      <div class="field"><label>${t('durationMin')}</label><input type="number" min="0" id="fwDur" value="${w.duration}"></div>
+      <div class="field full"><label>${t('notes')}</label><textarea id="fwNotes" placeholder="${t('optional')}">${esc(w.notes || '')}</textarea></div>
     </div>
-    <div style="margin:16px 0 10px;font-weight:700;font-size:14px">Esercizi</div>
+    <div style="margin:16px 0 10px;font-weight:700;font-size:14px">${t('exsCol')}</div>
     <div id="exList">${w.exercises.map(e => exerciseBlockHTML(e)).join('')}</div>
-    <button class="btn btn-sm" id="addEx">${ic('plus')} Aggiungi esercizio</button>`;
+    <button class="btn btn-sm" id="addEx">${ic('plus')} ${t('addExercise')}</button>`;
 
   Modal.open({
-    title: existing ? 'Modifica allenamento' : 'Nuovo allenamento', body, wide: true,
-    footer: `${existing ? `<button class="btn" id="fwDup">${ic('copy')} Duplica</button><button class="btn" id="fwTpl">${ic('clipboard')} Salva come modello</button>` : ''}
-      <button class="btn" onclick="Modal.close()">Annulla</button><button class="btn btn-primary" id="fwSave">Salva</button>`,
+    title: existing ? t('editWork') : t('newWork'), body, wide: true,
+    footer: `${existing ? `<button class="btn" id="fwDup">${ic('copy')} ${t('duplicate')}</button><button class="btn" id="fwTpl">${ic('clipboard')} ${t('saveTemplate')}</button>` : ''}
+      <button class="btn" onclick="Modal.close()">${t('cancel')}</button><button class="btn btn-primary" id="fwSave">${t('save')}</button>`,
     onMount(root) {
       const bindBlocks = () => {
         $$('.ex-del', root).forEach(b => b.onclick = () => {
-          if ($$('.ex-block', root).length === 1) { Toast.show('Serve almeno un esercizio', 'error'); return; }
+          if ($$('.ex-block', root).length === 1) { Toast.show(t('minOneEx'), 'error'); return; }
           b.closest('.ex-block').remove();
         });
         $$('.rpe-slider', root).forEach(s => s.oninput = () => { s.closest('.field').querySelector('.range-val').textContent = s.value; });
@@ -1204,7 +1251,7 @@ function workoutForm(existing = null, fromTemplate = null) {
       $('#addEx', root).onclick = () => { $('#exList', root).insertAdjacentHTML('beforeend', exerciseBlockHTML()); bindBlocks(); };
 
       const collect = () => {
-        if (!validateForm(root)) { Toast.show('Compila i campi obbligatori', 'error'); return null; }
+        if (!validateForm(root)) { Toast.show(t('reqFields'), 'error'); return null; }
         return {
           id: existing?.id || uid(),
           name: $('#fwName', root).value.trim(),
@@ -1225,7 +1272,7 @@ function workoutForm(existing = null, fromTemplate = null) {
           const i = Store.data.workouts.findIndex(x => x.id === existing.id);
           Store.data.workouts[i] = rec;
         } else Store.data.workouts.push(rec);
-        Store.save(); Modal.close(); Toast.show(existing ? 'Allenamento aggiornato' : 'Allenamento salvato'); Router.render();
+        Store.save(); Modal.close(); Toast.show(existing ? t('workUpdated') : t('workSaved')); Router.render();
       };
 
       if (existing) {
@@ -1234,12 +1281,12 @@ function workoutForm(existing = null, fromTemplate = null) {
           rec.id = uid(); rec.date = todayISO();
           rec.exercises = rec.exercises.map(e => ({ ...e, id: uid() }));
           Store.data.workouts.push(rec);
-          Store.save(); Modal.close(); Toast.show('Allenamento duplicato con data odierna'); Router.render();
+          Store.save(); Modal.close(); Toast.show(t('workDuplicated')); Router.render();
         };
         $('#fwTpl', root).onclick = () => {
           const rec = collect(); if (!rec) return;
           Store.data.templates.push({ id: uid(), name: rec.name, group: rec.group, exercises: rec.exercises.map(e => ({ ...e, id: uid() })) });
-          Store.save(); Toast.show('Modello salvato');
+          Store.save(); Toast.show(t('tplSaved'));
         };
       }
     },
@@ -1249,47 +1296,47 @@ function workoutForm(existing = null, fromTemplate = null) {
 function templatesDialog() {
   const tpls = Store.data.templates;
   Modal.open({
-    title: 'Modelli di allenamento',
-    body: tpls.length ? tpls.map(t => `<div class="list-row">
+    title: t('tplTitle'),
+    body: tpls.length ? tpls.map(tp => `<div class="list-row">
       <div class="list-ico ico-blue">${ic('clipboard')}</div>
-      <div class="list-main"><b>${esc(t.name)}</b><span>${t.exercises.length} esercizi · ${esc(t.group)}</span></div>
+      <div class="list-main"><b>${esc(tp.name)}</b><span>${tp.exercises.length} ${t('exercises')} · ${esc(tp.group)}</span></div>
       <div class="td-actions">
-        <button class="btn btn-sm btn-primary" data-usetpl="${t.id}">Usa</button>
-        <button class="btn-icon danger" data-deltpl="${t.id}">${ic('trash')}</button>
+        <button class="btn btn-sm btn-primary" data-usetpl="${tp.id}">${t('use')}</button>
+        <button class="btn-icon danger" data-deltpl="${tp.id}">${ic('trash')}</button>
       </div></div>`).join('')
-      : emptyState('clipboard', 'Nessun modello', 'Salva un allenamento come modello per riutilizzarlo.'),
+      : emptyState('clipboard', t('noTpl'), t('noTplP')),
     onMount(root) {
       $$('[data-usetpl]', root).forEach(b => b.onclick = () => {
-        const t = tpls.find(x => x.id === b.dataset.usetpl);
+        const tp = tpls.find(x => x.id === b.dataset.usetpl);
         Modal.close();
-        setTimeout(() => workoutForm(null, { name: t.name, group: t.group, duration: 60, notes: '', exercises: t.exercises.map(e => ({ ...e, id: uid() })) }), 300);
+        setTimeout(() => workoutForm(null, { name: tp.name, group: tp.group, duration: 60, notes: '', exercises: tp.exercises.map(e => ({ ...e, id: uid() })) }), 300);
       });
       $$('[data-deltpl]', root).forEach(b => b.onclick = () => {
         Store.data.templates = Store.data.templates.filter(x => x.id !== b.dataset.deltpl);
-        Store.save(); Toast.show('Modello eliminato'); Modal.close();
+        Store.save(); Toast.show(t('tplDeleted')); Modal.close();
       });
     },
   });
 }
 
-function foodForm(existing = null, mealName = 'Colazione') {
+function foodForm(existing = null, mealKey = 'Colazione') {
   const f = existing || { name: '', qty: '', kcal: '', protein: '', carbs: '', fat: '' };
   Modal.open({
-    title: existing ? 'Modifica alimento' : `Aggiungi a ${mealName}`,
+    title: existing ? t('editFood') : t('addTo', mealLabel(mealKey)),
     body: `<div class="form-grid">
-      <div class="field full"><label>Nome alimento *</label><input id="ffName" data-req value="${esc(f.name)}" placeholder="Es. Petto di pollo"><div class="err-msg">Obbligatorio</div></div>
-      <div class="field"><label>Quantità</label><input id="ffQty" value="${esc(f.qty)}" placeholder="100 g"></div>
-      <div class="field"><label>Pasto</label>
-        <select id="ffMeal">${['Colazione', 'Pranzo', 'Spuntino', 'Cena'].map(m => `<option ${(existing?.meal || mealName) === m ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
-      <div class="field"><label>Calorie (kcal) *</label><input type="number" min="0" id="ffKcal" data-req data-pos value="${f.kcal}"><div class="err-msg">Obbligatorio</div></div>
-      <div class="field"><label>Proteine (g)</label><input type="number" min="0" step="0.1" id="ffP" value="${f.protein}"></div>
-      <div class="field"><label>Carboidrati (g)</label><input type="number" min="0" step="0.1" id="ffC" value="${f.carbs}"></div>
-      <div class="field"><label>Grassi (g)</label><input type="number" min="0" step="0.1" id="ffF" value="${f.fat}"></div>
+      <div class="field full"><label>${t('foodName')} *</label><input id="ffName" data-req value="${esc(f.name)}" placeholder="${t('phFood')}"><div class="err-msg">${t('required')}</div></div>
+      <div class="field"><label>${t('qty')}</label><input id="ffQty" value="${esc(f.qty)}" placeholder="100 g"></div>
+      <div class="field"><label>${t('meal')}</label>
+        <select id="ffMeal">${MEAL_KEYS.map(m => `<option value="${m}" ${(existing?.meal || mealKey) === m ? 'selected' : ''}>${mealLabel(m)}</option>`).join('')}</select></div>
+      <div class="field"><label>${t('kcalUnit')} *</label><input type="number" min="0" id="ffKcal" data-req data-pos value="${f.kcal}"><div class="err-msg">${t('required')}</div></div>
+      <div class="field"><label>${t('protein')}</label><input type="number" min="0" step="0.1" id="ffP" value="${f.protein}"></div>
+      <div class="field"><label>${t('carbs')}</label><input type="number" min="0" step="0.1" id="ffC" value="${f.carbs}"></div>
+      <div class="field"><label>${t('fat')}</label><input type="number" min="0" step="0.1" id="ffF" value="${f.fat}"></div>
     </div>`,
-    footer: `<button class="btn" onclick="Modal.close()">Annulla</button><button class="btn btn-primary" id="ffSave">Salva</button>`,
+    footer: `<button class="btn" onclick="Modal.close()">${t('cancel')}</button><button class="btn btn-primary" id="ffSave">${t('save')}</button>`,
     onMount(root) {
       $('#ffSave', root).onclick = () => {
-        if (!validateForm(root)) { Toast.show('Compila i campi obbligatori', 'error'); return; }
+        if (!validateForm(root)) { Toast.show(t('reqFields'), 'error'); return; }
         const rec = {
           id: existing?.id || uid(), date: existing?.date || State.foodDate,
           meal: $('#ffMeal', root).value, name: $('#ffName', root).value.trim(), qty: $('#ffQty', root).value.trim() || '—',
@@ -1300,7 +1347,7 @@ function foodForm(existing = null, mealName = 'Colazione') {
           const i = Store.data.meals.findIndex(x => x.id === existing.id);
           Store.data.meals[i] = rec;
         } else Store.data.meals.push(rec);
-        Store.save(); Modal.close(); Toast.show(existing ? 'Alimento aggiornato' : 'Alimento aggiunto'); Router.render();
+        Store.save(); Modal.close(); Toast.show(existing ? t('foodUpdated') : t('foodAdded')); Router.render();
       };
     },
   });
@@ -1308,14 +1355,14 @@ function foodForm(existing = null, mealName = 'Colazione') {
 
 function compareDialog() {
   const ms = Stats.sortedMeasurements();
-  if (ms.length < 2) { Toast.show('Servono almeno due misurazioni', 'error'); return; }
+  if (ms.length < 2) { Toast.show(t('need2'), 'error'); return; }
   const opts = ms.map(m => `<option value="${m.id}">${fmtDate(m.date)}</option>`).join('');
 
   Modal.open({
-    title: 'Confronto tra due date', wide: true,
+    title: t('cmpTitle'), wide: true,
     body: `<div class="form-grid" style="grid-template-columns:1fr 1fr">
-        <div class="field"><label>Da</label><select id="cmpA">${opts}</select></div>
-        <div class="field"><label>A</label><select id="cmpB">${opts}</select></div>
+        <div class="field"><label>${t('from')}</label><select id="cmpA">${opts}</select></div>
+        <div class="field"><label>${t('to')}</label><select id="cmpB">${opts}</select></div>
       </div><div id="cmpOut" class="mt"></div>`,
     onMount(root) {
       $('#cmpB', root).value = ms[ms.length - 1].id;
@@ -1323,12 +1370,12 @@ function compareDialog() {
         const a = ms.find(m => m.id === $('#cmpA', root).value);
         const b = ms.find(m => m.id === $('#cmpB', root).value);
         $('#cmpOut', root).innerHTML = `<div class="cmp-grid">
-          <span class="cmp-h">Misura</span><span class="cmp-h">${fmtDateShort(a.date)}</span><span class="cmp-h">${fmtDateShort(b.date)}</span><span class="cmp-h" style="text-align:right">Δ</span>
+          <span class="cmp-h">${t('measureCol')}</span><span class="cmp-h">${fmtDateShort(a.date)}</span><span class="cmp-h">${fmtDateShort(b.date)}</span><span class="cmp-h" style="text-align:right">Δ</span>
           ${M_FIELDS.filter(f => a[f.key] != null && b[f.key] != null).map(f => {
             const d = round1(b[f.key] - a[f.key]);
             const pct = a[f.key] ? round1(d / a[f.key] * 100) : 0;
             const good = ['waist', 'abdomen', 'hips', 'weight', 'bodyFat', 'neck', 'torso'].includes(f.key) ? d <= 0 : d >= 0;
-            return `<span class="cmp-label">${f.label}</span><span>${a[f.key]} ${f.unit}</span><span>${b[f.key]} ${f.unit}</span>
+            return `<span class="cmp-label">${fl(f)}</span><span>${a[f.key]} ${f.unit}</span><span>${b[f.key]} ${f.unit}</span>
               <span class="cmp-delta" style="color:${d === 0 ? 'var(--text-faint)' : good ? 'var(--emerald)' : 'var(--red)'}">${d > 0 ? '+' : ''}${d} (${pct > 0 ? '+' : ''}${pct}%)</span>`;
           }).join('')}
         </div>`;
@@ -1341,42 +1388,441 @@ function compareDialog() {
 }
 
 /* =====================================================================
-   ONBOARDING — primo accesso: dati anagrafici + misure iniziali
+   PROFILO — modifica dati personali + foto
+   ===================================================================== */
+function avatarHTML(p) {
+  if (p.avatar) return `<img src="${p.avatar}" alt="">`;
+  return ((p.firstName?.[0] || '?') + (p.lastName?.[0] || '')).toUpperCase();
+}
+
+/* Ridimensiona l'immagine a 160px (crop quadrato) e restituisce dataURL JPEG */
+function resizeImage(file, size = 160) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = c.height = size;
+      const ctx = c.getContext('2d');
+      const s = Math.min(img.width, img.height);
+      ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+      resolve(c.toDataURL('image/jpeg', 0.85));
+      URL.revokeObjectURL(img.src);
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function profileForm(user) {
+  const p = Store.data.profile;
+  let newAvatar = p.avatar;
+
+  Modal.open({
+    title: t('pfTitle'), wide: true,
+    body: `
+      <div class="photo-row">
+        <div class="avatar-lg" id="pfAvatar">${avatarHTML(p)}</div>
+        <div>
+          <div style="font-weight:700;font-size:14px;margin-bottom:8px">${t('pfPhoto')}</div>
+          <div class="photo-actions">
+            <button class="btn btn-sm" id="pfUpload">${ic('camera')} ${t('pfUpload')}</button>
+            <button class="btn btn-sm" id="pfRemovePhoto">${ic('trash')} ${t('pfRemove')}</button>
+            <input type="file" id="pfFile" accept="image/*" hidden>
+          </div>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label>${t('firstName')} *</label><input id="pfFirst" data-req value="${esc(p.firstName)}"><div class="err-msg">${t('required')}</div></div>
+        <div class="field"><label>${t('lastName')} *</label><input id="pfLast" data-req value="${esc(p.lastName)}"><div class="err-msg">${t('required')}</div></div>
+        <div class="field"><label>${t('age')}</label><input type="number" min="10" max="100" id="pfAge" value="${p.age ?? ''}"></div>
+        <div class="field"><label>${t('heightLbl')}</label><input type="number" min="0" id="pfHeight" value="${p.height ?? ''}"></div>
+        <div class="field"><label>${t('sex')}</label>
+          <select id="pfSex">
+            <option value="m" ${p.sex === 'm' ? 'selected' : ''}>${t('sexM')}</option>
+            <option value="f" ${p.sex === 'f' ? 'selected' : ''}>${t('sexF')}</option>
+            <option value="na" ${p.sex === 'na' || !p.sex ? 'selected' : ''}>${t('sexNA')}</option>
+          </select></div>
+        <div class="field"><label>${t('goalLbl')}</label>
+          <select id="pfGoal">${GOAL_KEYS.map(g => `<option value="${g}" ${p.goal === g ? 'selected' : ''}>${t('goal_' + g)}</option>`).join('')}</select></div>
+        <div class="field full"><label>${t('pfBio')}</label><textarea id="pfBio" placeholder="${t('optional')}">${esc(p.bio || '')}</textarea></div>
+      </div>`,
+    footer: `<button class="btn" onclick="Modal.close()">${t('cancel')}</button><button class="btn btn-primary" id="pfSave">${t('save')}</button>`,
+    onMount(root) {
+      $('#pfUpload', root).onclick = () => $('#pfFile', root).click();
+      $('#pfFile', root).onchange = async e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+          newAvatar = await resizeImage(file);
+          $('#pfAvatar', root).innerHTML = `<img src="${newAvatar}" alt="">`;
+        } catch { Toast.show(t('invalidFile'), 'error'); }
+      };
+      $('#pfRemovePhoto', root).onclick = () => {
+        newAvatar = null;
+        $('#pfAvatar', root).innerHTML = avatarHTML({ ...p, avatar: null });
+      };
+
+      $('#pfSave', root).onclick = () => {
+        if (!validateForm(root)) { Toast.show(t('reqFields'), 'error'); return; }
+        p.firstName = $('#pfFirst', root).value.trim();
+        p.lastName = $('#pfLast', root).value.trim();
+        p.age = $('#pfAge', root).value ? Number($('#pfAge', root).value) : null;
+        p.height = $('#pfHeight', root).value ? Number($('#pfHeight', root).value) : null;
+        p.sex = $('#pfSex', root).value;
+        p.goal = $('#pfGoal', root).value;
+        p.bio = $('#pfBio', root).value.trim();
+        p.avatar = newAvatar;
+        Store.save();
+        Modal.close();
+        applyUserToUI(user);
+        Toast.show(t('pfSaved'));
+        Router.render();
+      };
+    },
+  });
+}
+
+/* =====================================================================
+   GOOGLE FIT — import da export Takeout
+   L'API REST di Google Fit è stata dismessa da Google (giugno 2025) e
+   Health Connect non espone API web: l'unica integrazione possibile da
+   sito statico è l'import dello storico esportato da takeout.google.com.
+   Formati supportati:
+   - JSON raw (raw_com.google.weight_*.json): Data Points → fpVal + startTimeNanos
+   - CSV "Daily activity metrics": colonna data + colonna peso medio
+   ===================================================================== */
+function parseGoogleFit(text, filename) {
+  const out = []; // [{date, weight}]
+
+  if (/\.json$/i.test(filename) || text.trim().startsWith('{')) {
+    const j = JSON.parse(text);
+    const points = j['Data Points'] || j.point || [];
+    points.forEach(pt => {
+      const v = pt.fitValue?.[0]?.value?.fpVal ?? pt.value?.[0]?.fpVal;
+      const nanos = pt.startTimeNanos || pt.endTimeNanos;
+      if (v && nanos) out.push({ date: new Date(Number(nanos) / 1e6).toISOString().slice(0, 10), weight: round1(v) });
+    });
+  } else {
+    // CSV: individua colonna data e colonna peso (indipendente dalla lingua di export)
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return out;
+    const head = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const wIdx = head.findIndex(h => /weight|peso/.test(h));
+    const dIdx = head.findIndex(h => /date|data/.test(h));
+    if (wIdx < 0) return out;
+    lines.slice(1).forEach(l => {
+      const cells = l.split(',');
+      const w = parseFloat(cells[wIdx]);
+      const rawDate = dIdx >= 0 ? cells[dIdx]?.trim() : null;
+      const date = rawDate && /^\d{4}-\d{2}-\d{2}/.test(rawDate) ? rawDate.slice(0, 10) : null;
+      if (!isNaN(w) && w > 0 && date) out.push({ date, weight: round1(w) });
+    });
+  }
+
+  // Una misura per giorno (l'ultima vince), ordinate per data
+  const byDate = {};
+  out.forEach(r => { byDate[r.date] = r.weight; });
+  return Object.entries(byDate).map(([date, weight]) => ({ date, weight })).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function importGoogleFitFile(file) {
+  file.text().then(text => {
+    let rows;
+    try { rows = parseGoogleFit(text, file.name); }
+    catch { Toast.show(t('invalidFile'), 'error'); return; }
+    if (!rows.length) { Toast.show(t('gfitNone'), 'error'); return; }
+
+    const existing = new Set(Store.data.measurements.map(m => m.date));
+    let added = 0;
+    rows.forEach(r => {
+      if (existing.has(r.date)) return; // non sovrascrive misurazioni esistenti
+      Store.data.measurements.push({ id: uid(), date: r.date, weight: r.weight, height: Store.data.profile.height ?? null });
+      added++;
+    });
+    Store.save();
+    Toast.show(t('gfitImported', added));
+    Router.render();
+  }).catch(() => Toast.show(t('invalidFile'), 'error'));
+}
+
+/* =====================================================================
+   FITBIT — sync automatica via OAuth2 PKCE (100% client-side)
+   Peso + massa grassa (log ultimi 90 giorni, finestre da 31gg max API)
+   e attività → allenamenti. Auto-sync una volta al giorno all'avvio.
+   ===================================================================== */
+const Fitbit = {
+  API: 'https://api.fitbit.com',
+
+  storeKey() { return 'fws-fitbit-' + (Auth.current()?.id || 'anon'); },
+  tokens() { try { return JSON.parse(localStorage.getItem(this.storeKey())); } catch { return null; } },
+  saveTokens(tk) { localStorage.setItem(this.storeKey(), JSON.stringify(tk)); },
+  clearTokens() { localStorage.removeItem(this.storeKey()); },
+  connected() { return !!this.tokens()?.refresh; },
+  configured() { return !FITBIT_CLIENT_ID.startsWith('YOUR'); },
+
+  redirectUri() { return location.origin + location.pathname; },
+
+  /* --- PKCE helpers --- */
+  b64url(buf) {
+    return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  },
+  randVerifier() {
+    const a = new Uint8Array(64);
+    crypto.getRandomValues(a);
+    return this.b64url(a).slice(0, 96);
+  },
+
+  /* Avvia il flusso: redirect alla pagina di autorizzazione Fitbit */
+  async connect() {
+    if (!this.configured()) { Toast.show(t('fbNotConf'), 'error'); return; }
+    const verifier = this.randVerifier();
+    localStorage.setItem('fws-fb-verifier', verifier);
+    const challenge = this.b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+    const params = new URLSearchParams({
+      client_id: FITBIT_CLIENT_ID,
+      response_type: 'code',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      scope: 'weight activity profile',
+      redirect_uri: this.redirectUri(),
+    });
+    location.href = 'https://www.fitbit.com/oauth2/authorize?' + params;
+  },
+
+  /* Al ritorno dal redirect (?code=...) scambia il codice con i token */
+  async handleRedirect() {
+    const code = new URLSearchParams(location.search).get('code');
+    const verifier = localStorage.getItem('fws-fb-verifier');
+    if (!code || !verifier) return false;
+    history.replaceState(null, '', location.pathname + location.hash); // pulisce l'URL
+    localStorage.removeItem('fws-fb-verifier');
+    try {
+      const res = await fetch(this.API + '/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: FITBIT_CLIENT_ID, grant_type: 'authorization_code',
+          code, code_verifier: verifier, redirect_uri: this.redirectUri(),
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const j = await res.json();
+      this.saveTokens({ access: j.access_token, refresh: j.refresh_token, expiresAt: Date.now() + j.expires_in * 1000 - 60000 });
+      Toast.show(t('fbConnected'));
+      return true;
+    } catch { Toast.show(t('fbError'), 'error'); return false; }
+  },
+
+  async refresh() {
+    const tk = this.tokens();
+    if (!tk?.refresh) return false;
+    try {
+      const res = await fetch(this.API + '/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ client_id: FITBIT_CLIENT_ID, grant_type: 'refresh_token', refresh_token: tk.refresh }),
+      });
+      if (!res.ok) throw new Error();
+      const j = await res.json();
+      this.saveTokens({ access: j.access_token, refresh: j.refresh_token, expiresAt: Date.now() + j.expires_in * 1000 - 60000 });
+      return true;
+    } catch { this.clearTokens(); return false; }
+  },
+
+  async api(path) {
+    let tk = this.tokens();
+    if (!tk) throw new Error('not connected');
+    if (Date.now() >= tk.expiresAt) {
+      if (!await this.refresh()) throw new Error('refresh failed');
+      tk = this.tokens();
+    }
+    const res = await fetch(this.API + path, { headers: { Authorization: 'Bearer ' + tk.access } });
+    if (res.status === 401) { // token revocato altrove: un tentativo di refresh
+      if (!await this.refresh()) throw new Error('unauthorized');
+      return this.api(path);
+    }
+    if (!res.ok) throw new Error('api ' + res.status);
+    return res.json();
+  },
+
+  /* Sync: log peso/grasso (finestre da 31gg, 90gg totali) + attività */
+  async sync(silent = false) {
+    if (!this.connected()) return;
+    try {
+      let addedM = 0, addedW = 0;
+
+      // --- Peso e massa grassa ---
+      const byDate = new Map(Store.data.measurements.map(m => [m.date, m]));
+      for (let win = 0; win < 3; win++) {
+        const end = daysAgo(win * 31), start = daysAgo(win * 31 + 30);
+        const j = await this.api(`/1/user/-/body/log/weight/date/${start}/${end}.json`);
+        (j.weight || []).forEach(log => {
+          const ex = byDate.get(log.date);
+          if (ex) {
+            if (ex.source === 'fitbit') { ex.weight = round1(log.weight); if (log.fat) ex.bodyFat = round1(log.fat); }
+            return; // non tocca le misurazioni manuali
+          }
+          const rec = {
+            id: 'fb' + (log.logId || uid()), date: log.date, source: 'fitbit',
+            weight: round1(log.weight), bodyFat: log.fat ? round1(log.fat) : null,
+            height: Store.data.profile.height ?? null,
+          };
+          Store.data.measurements.push(rec);
+          byDate.set(log.date, rec);
+          addedM++;
+        });
+      }
+
+      // --- Attività → allenamenti ---
+      const after = daysAgo(90);
+      const j = await this.api(`/1/user/-/activities/list.json?afterDate=${after}&sort=asc&offset=0&limit=100`);
+      const ids = new Set(Store.data.workouts.map(w => w.id));
+      (j.activities || []).forEach(a => {
+        const id = 'fb' + a.logId;
+        if (ids.has(id)) return;
+        Store.data.workouts.push({
+          id, date: (a.startTime || '').slice(0, 10) || todayISO(),
+          name: a.activityName || 'Fitbit', group: 'Cardio',
+          duration: Math.round((a.duration || 0) / 60000),
+          notes: 'Fitbit', exercises: [],
+        });
+        addedW++;
+      });
+
+      Store.data.fitbitLastSync = todayISO();
+      Store.save();
+      if (!silent || addedM || addedW) Toast.show(t('fbSynced', addedM, addedW));
+      if (addedM || addedW) Router.render();
+    } catch {
+      if (!silent) Toast.show(t('fbError'), 'error');
+    }
+  },
+
+  /* Auto-sync: al massimo una volta al giorno, silenziosa */
+  autoSync() {
+    if (this.connected() && Store.data.fitbitLastSync !== todayISO()) this.sync(true);
+  },
+
+  disconnect() {
+    this.clearTokens();
+    Toast.show(t('fbDisconnected'), 'info');
+  },
+};
+
+/* =====================================================================
+   IMPOSTAZIONI — obiettivi nutrizionali/allenamento + lingua + integrazioni
+   ===================================================================== */
+function settingsForm(user) {
+  const g = Store.data.goals;
+  Modal.open({
+    title: t('stTitle'),
+    body: `
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.04em">${t('stNutrition')}</div>
+      <div class="form-grid">
+        <div class="field"><label>${t('stKcal')}</label><input type="number" min="0" id="stKcal" value="${g.kcal}"></div>
+        <div class="field"><label>${t('protein')}</label><input type="number" min="0" id="stP" value="${g.protein}"></div>
+        <div class="field"><label>${t('carbs')}</label><input type="number" min="0" id="stC" value="${g.carbs}"></div>
+        <div class="field"><label>${t('fat')}</label><input type="number" min="0" id="stF" value="${g.fat}"></div>
+        <div class="field"><label>${t('stWater')}</label><input type="number" min="1" max="16" id="stWater" value="${g.waterGlasses}"></div>
+        <div class="field"><label>${t('stWeekly')}</label><input type="number" min="1" max="14" id="stWeekly" value="${g.weeklyWorkouts}"></div>
+      </div>
+      <div style="font-weight:700;font-size:13px;margin:18px 0 10px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.04em">${t('stGeneral')}</div>
+      <div class="form-grid">
+        <div class="field"><label>${t('stLang')}</label>
+          <select id="stLang">
+            <option value="it" ${Lang.lang === 'it' ? 'selected' : ''}>Italiano</option>
+            <option value="en" ${Lang.lang === 'en' ? 'selected' : ''}>English</option>
+          </select></div>
+      </div>
+      <div style="font-weight:700;font-size:13px;margin:18px 0 10px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.04em">${t('stIntegrations')}</div>
+
+      <div style="font-weight:700;font-size:13.5px;margin-bottom:4px">Fitbit
+        <span class="badge ${Fitbit.connected() ? 'badge-emerald' : 'badge-red'}" style="margin-left:6px">${Fitbit.connected() ? t('fbConnected') : t('fbNotConnected')}</span></div>
+      <div style="font-size:12.5px;color:var(--text-soft);margin-bottom:10px;line-height:1.5">${t('fbHint')}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
+        ${Fitbit.connected()
+          ? `<button class="btn" id="stFbSync">${ic('swap')} ${t('fbSync')}</button>
+             <button class="btn btn-danger" id="stFbDisc">${ic('x')} ${t('fbDisconnect')}</button>`
+          : `<button class="btn btn-blue" id="stFbConn">${ic('activity')} ${t('fbConnect')}</button>`}
+      </div>
+
+      <div style="font-weight:700;font-size:13.5px;margin-bottom:4px">${t('stGfit')}</div>
+      <div style="font-size:12.5px;color:var(--text-soft);margin-bottom:10px;line-height:1.5">${t('gfitHint')}</div>
+      <button class="btn" id="stGfitBtn">${ic('upload')} ${t('gfitImport')}</button>
+      <input type="file" id="stGfitFile" accept=".json,.csv,application/json,text/csv" hidden>`,
+    footer: `<button class="btn" onclick="Modal.close()">${t('cancel')}</button><button class="btn btn-primary" id="stSave">${t('save')}</button>`,
+    onMount(root) {
+      if (Fitbit.connected()) {
+        $('#stFbSync', root).onclick = () => { Modal.close(); Fitbit.sync(false); };
+        $('#stFbDisc', root).onclick = () => { Fitbit.disconnect(); Modal.close(); };
+      } else {
+        $('#stFbConn', root).onclick = () => Fitbit.connect();
+      }
+      $('#stGfitBtn', root).onclick = () => $('#stGfitFile', root).click();
+      $('#stGfitFile', root).onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        Modal.close();
+        importGoogleFitFile(file);
+      };
+      $('#stSave', root).onclick = () => {
+        g.kcal = Number($('#stKcal', root).value) || g.kcal;
+        g.protein = Number($('#stP', root).value) || g.protein;
+        g.carbs = Number($('#stC', root).value) || g.carbs;
+        g.fat = Number($('#stF', root).value) || g.fat;
+        g.waterGlasses = Math.max(1, Number($('#stWater', root).value) || g.waterGlasses);
+        g.weeklyWorkouts = Math.max(1, Number($('#stWeekly', root).value) || g.weeklyWorkouts);
+        Store.save();
+
+        const newLang = $('#stLang', root).value;
+        const langChanged = newLang !== Lang.lang;
+        if (langChanged) Lang.set(newLang);
+
+        Modal.close();
+        if (langChanged) { applyStaticLang(); applyUserToUI(user); }
+        Toast.show(t('stSaved'));
+        Router.render();
+      };
+    },
+  });
+}
+
+/* =====================================================================
+   ONBOARDING — primo accesso
    ===================================================================== */
 function onboardingForm(user) {
   const pre = user.prefill || {};
   const optFields = M_FIELDS.filter(f => !['weight', 'height', 'bodyFat'].includes(f.key));
   Modal.open({
-    title: 'Benvenuto! Completa il tuo profilo', wide: true, locked: true,
+    title: t('obTitle'), wide: true, locked: true,
     body: `
-      <p style="font-size:13px;color:var(--text-soft);margin-bottom:16px">
-        Questi dati inizializzano il tuo profilo e la prima misurazione. Potrai modificarli in seguito.</p>
+      <p style="font-size:13px;color:var(--text-soft);margin-bottom:16px">${t('obIntro')}</p>
       <div class="form-grid">
-        <div class="field"><label>Nome *</label><input id="obFirst" data-req value="${esc(pre.firstName || '')}" placeholder="Mario"><div class="err-msg">Obbligatorio</div></div>
-        <div class="field"><label>Cognome *</label><input id="obLast" data-req value="${esc(pre.lastName || '')}" placeholder="Rossi"><div class="err-msg">Obbligatorio</div></div>
-        <div class="field"><label>Età *</label><input type="number" min="10" max="100" id="obAge" data-req data-pos placeholder="30"><div class="err-msg">Obbligatorio</div></div>
-        <div class="field"><label>Peso (kg) *</label><input type="number" step="0.1" min="0" id="obWeight" data-req data-pos placeholder="75.0"><div class="err-msg">Obbligatorio</div></div>
-        <div class="field"><label>Altezza (cm) *</label><input type="number" min="0" id="obHeight" data-req data-pos placeholder="175"><div class="err-msg">Obbligatorio</div></div>
-        <div class="field"><label>Massa grassa (%) — opzionale</label><input type="number" step="0.1" min="0" id="obBf" placeholder="18.0"></div>
+        <div class="field"><label>${t('firstName')} *</label><input id="obFirst" data-req value="${esc(pre.firstName || '')}" placeholder="Mario"><div class="err-msg">${t('required')}</div></div>
+        <div class="field"><label>${t('lastName')} *</label><input id="obLast" data-req value="${esc(pre.lastName || '')}" placeholder="Rossi"><div class="err-msg">${t('required')}</div></div>
+        <div class="field"><label>${t('age')} *</label><input type="number" min="10" max="100" id="obAge" data-req data-pos placeholder="30"><div class="err-msg">${t('required')}</div></div>
+        <div class="field"><label>${t('weightLbl')} *</label><input type="number" step="0.1" min="0" id="obWeight" data-req data-pos placeholder="75.0"><div class="err-msg">${t('required')}</div></div>
+        <div class="field"><label>${t('heightLbl')} *</label><input type="number" min="0" id="obHeight" data-req data-pos placeholder="175"><div class="err-msg">${t('required')}</div></div>
+        <div class="field"><label>${t('bfOpt')}</label><input type="number" step="0.1" min="0" id="obBf" placeholder="18.0"></div>
       </div>
       <details style="margin-top:16px">
-        <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text-soft)">Misure corporee iniziali (opzionali)</summary>
+        <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text-soft)">${t('obOptMeas')}</summary>
         <div class="form-grid" style="margin-top:12px">
-          ${optFields.map(f => `<div class="field"><label>${f.label} (${f.unit})</label>
+          ${optFields.map(f => `<div class="field"><label>${fl(f)} (${f.unit})</label>
             <input type="number" step="0.1" min="0" id="ob_${f.key}" placeholder="0.0"></div>`).join('')}
         </div>
       </details>`,
-    footer: `<button class="btn btn-primary" id="obSave">Inizia</button>`,
+    footer: `<button class="btn btn-primary" id="obSave">${t('obStart')}</button>`,
     onMount(root) {
       $('#obSave', root).onclick = () => {
-        if (!validateForm(root)) { Toast.show('Compila i campi obbligatori', 'error'); return; }
+        if (!validateForm(root)) { Toast.show(t('reqFields'), 'error'); return; }
         const p = Store.data.profile;
         p.firstName = $('#obFirst', root).value.trim();
         p.lastName = $('#obLast', root).value.trim();
         p.age = Number($('#obAge', root).value);
         p.height = Number($('#obHeight', root).value);
+        if (pre.avatar) p.avatar = pre.avatar; // foto Google se disponibile
 
-        // Prima misurazione dal profilo
         const rec = { id: uid(), date: todayISO(), weight: Number($('#obWeight', root).value), height: p.height };
         const bf = $('#obBf', root).value;
         rec.bodyFat = bf === '' ? null : Number(bf);
@@ -1392,7 +1838,7 @@ function onboardingForm(user) {
 
         Modal.close();
         applyUserToUI(user);
-        Toast.show(`Benvenuto, ${p.firstName}! Profilo creato.`);
+        Toast.show(t('obWelcome', p.firstName));
         Router.render();
       };
     },
@@ -1408,37 +1854,34 @@ function renderAuthScreen() {
     <div class="auth-card">
       <div class="auth-brand">
         <div class="brand-logo">FS</div>
-        <div><h1>Fit with Science</h1><p>Allenamento, misure e alimentazione</p></div>
+        <div><h1>Fit with Science</h1><p>${t('appTagline')}</p></div>
       </div>
 
       <div class="auth-tabs">
-        <button class="auth-tab active" data-tab="login">Accedi</button>
-        <button class="auth-tab" data-tab="register">Registrati</button>
+        <button class="auth-tab active" data-tab="login">${t('aLogin')}</button>
+        <button class="auth-tab" data-tab="register">${t('aRegister')}</button>
       </div>
 
       <form id="authForm" novalidate>
-        <div class="field"><label>Email</label><input type="email" id="authEmail" data-req placeholder="nome@email.com" autocomplete="email"><div class="err-msg">Email obbligatoria</div></div>
-        <div class="field"><label>Password</label><input type="password" id="authPw" data-req placeholder="••••••••" autocomplete="current-password" minlength="6"><div class="err-msg">Password obbligatoria (min 6 caratteri)</div></div>
-        <div class="field" id="pw2Field" style="display:none"><label>Conferma password</label><input type="password" id="authPw2" placeholder="••••••••" autocomplete="new-password"><div class="err-msg">Le password non coincidono</div></div>
-        <button type="submit" class="btn btn-primary auth-submit" id="authSubmit">Accedi</button>
+        <div class="field"><label>${t('aEmail')}</label><input type="email" id="authEmail" data-req placeholder="nome@email.com" autocomplete="email"><div class="err-msg">${t('aEmailReq')}</div></div>
+        <div class="field"><label>${t('aPw')}</label><input type="password" id="authPw" data-req placeholder="••••••••" autocomplete="current-password" minlength="6"><div class="err-msg">${t('aPwReq')}</div></div>
+        <div class="field" id="pw2Field" style="display:none"><label>${t('aPw2')}</label><input type="password" id="authPw2" placeholder="••••••••" autocomplete="new-password"><div class="err-msg">${t('aPwMismatch')}</div></div>
+        <button type="submit" class="btn btn-primary auth-submit" id="authSubmit">${t('aLogin')}</button>
       </form>
 
-      <div class="auth-divider">oppure</div>
+      <div class="auth-divider">${t('or')}</div>
       <div class="gsi-wrap" id="gsiBtn"></div>
-      <button class="btn auth-demo" id="demoBtn">${ic('user')} Prova la demo</button>
+      <button class="btn auth-demo" id="demoBtn">${ic('user')} ${t('aDemo')}</button>
 
-      <p class="auth-note">
-        I dati restano nel tuo browser (localStorage) e sono esportabili come file JSON dal menu profilo.<br>
-        Hosting statico: l'accesso protegge l'interfaccia, non cifra i dati sul dispositivo.
-      </p>
+      <p class="auth-note">${t('aNote')}<br>${t('aNote2')}</p>
     </div>`;
 
   let mode = 'login';
-  $$('.auth-tab', scr).forEach(t => t.onclick = () => {
-    mode = t.dataset.tab;
-    $$('.auth-tab', scr).forEach(x => x.classList.toggle('active', x === t));
+  $$('.auth-tab', scr).forEach(tab => tab.onclick = () => {
+    mode = tab.dataset.tab;
+    $$('.auth-tab', scr).forEach(x => x.classList.toggle('active', x === tab));
     $('#pw2Field', scr).style.display = mode === 'register' ? '' : 'none';
-    $('#authSubmit', scr).textContent = mode === 'register' ? 'Crea account' : 'Accedi';
+    $('#authSubmit', scr).textContent = mode === 'register' ? t('aCreate') : t('aLogin');
     $('#authPw', scr).autocomplete = mode === 'register' ? 'new-password' : 'current-password';
   });
 
@@ -1469,8 +1912,7 @@ function initGoogleSignIn() {
   const mount = $('#gsiBtn');
   const tryInit = () => {
     if (GOOGLE_CLIENT_ID.startsWith('YOUR')) {
-      mount.innerHTML = `<span style="font-size:12px;color:var(--text-faint);text-align:center">
-        Accesso Google non configurato:<br>imposta GOOGLE_CLIENT_ID in app.js</span>`;
+      mount.innerHTML = `<span style="font-size:12px;color:var(--text-faint);text-align:center">${t('aGoogleNc')}</span>`;
       return true;
     }
     if (!window.google?.accounts?.id) return false;
@@ -1478,19 +1920,17 @@ function initGoogleSignIn() {
       client_id: GOOGLE_CLIENT_ID,
       callback: res => {
         try {
-          // Decodifica il payload del JWT (identità verificata da Google lato client)
           const payload = JSON.parse(atob(res.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
           startApp(Auth.loginGoogle(payload));
-        } catch { Toast.show('Accesso Google non riuscito', 'error'); }
+        } catch { Toast.show(t('errGoogle'), 'error'); }
       },
     });
     google.accounts.id.renderButton(mount, {
       theme: document.documentElement.dataset.theme === 'dark' ? 'filled_black' : 'outline',
-      size: 'large', width: 320, text: 'continue_with', locale: 'it',
+      size: 'large', width: 320, text: 'continue_with', shape: 'pill', locale: Lang.lang,
     });
     return true;
   };
-  // Lo script GIS è async: riprova finché non è caricato
   if (!tryInit()) {
     let tries = 0;
     const iv = setInterval(() => { if (tryInit() || ++tries > 20) clearInterval(iv); }, 250);
@@ -1498,22 +1938,25 @@ function initGoogleSignIn() {
 }
 
 /* =====================================================================
-   PROFILE MENU — export/import dati, logout
+   PROFILE MENU — profilo, impostazioni, export/import, logout
    ===================================================================== */
 function initProfileMenu(user) {
   const menu = $('#profileMenu');
-  const p = () => Store.data.profile;
   const render = () => {
+    const p = Store.data.profile;
     menu.innerHTML = `
-      <div class="pm-head"><b>${esc(p().firstName)} ${esc(p().lastName)}</b><span>${esc(user.email)}</span></div>
-      <button class="pm-item" id="pmExport">${ic('download')} Esporta dati (JSON)</button>
-      <button class="pm-item" id="pmImport">${ic('upload')} Importa dati da file</button>
-      <button class="pm-item danger" id="pmLogout">${ic('logout')} Esci</button>`;
+      <div class="pm-head"><b>${esc(p.firstName)} ${esc(p.lastName)}</b><span>${esc(user.email)}</span></div>
+      <button class="pm-item" id="pmProfile">${ic('user')} ${t('pmProfile')}</button>
+      <button class="pm-item" id="pmSettings">${ic('gear')} ${t('pmSettings')}</button>
+      <button class="pm-item" id="pmExport">${ic('download')} ${t('pmExport')}</button>
+      <button class="pm-item" id="pmImport">${ic('upload')} ${t('pmImport')}</button>
+      <button class="pm-item danger" id="pmLogout">${ic('logout')} ${t('pmLogout')}</button>`;
+    $('#pmProfile', menu).onclick = () => { menu.classList.remove('open'); profileForm(user); };
+    $('#pmSettings', menu).onclick = () => { menu.classList.remove('open'); settingsForm(user); };
     $('#pmExport', menu).onclick = () => { Store.exportJSON(); menu.classList.remove('open'); };
     $('#pmImport', menu).onclick = () => { $('#importFile').click(); menu.classList.remove('open'); };
     $('#pmLogout', menu).onclick = () => Auth.logout();
   };
-  render();
 
   $('#profileBtn').onclick = e => { e.stopPropagation(); render(); menu.classList.toggle('open'); };
   document.addEventListener('click', e => { if (!e.target.closest('#profileMenu') && !e.target.closest('#profileBtn')) menu.classList.remove('open'); });
@@ -1523,21 +1966,21 @@ function initProfileMenu(user) {
     if (!file) return;
     try {
       Store.importJSON(await file.text());
-      Toast.show('Dati importati dal file');
+      Toast.show(t('dataImported'));
       applyUserToUI(user);
       Router.render();
-    } catch { Toast.show('File non valido', 'error'); }
+    } catch { Toast.show(t('invalidFile'), 'error'); }
     e.target.value = '';
   };
 }
 
 function applyUserToUI(user) {
   const p = Store.data.profile;
-  const initials = ((p.firstName[0] || user.email[0] || '?') + (p.lastName[0] || '')).toUpperCase();
-  $('#sideAvatar').textContent = initials;
-  $('#profileBtn').textContent = initials;
+  const av = avatarHTML(p);
+  $('#sideAvatar').innerHTML = av;
+  $('#profileBtn').innerHTML = av;
   $('#sideUserName').textContent = p.firstName ? `${p.firstName} ${p.lastName}` : user.email;
-  $('#sideUserGoal').textContent = 'Obiettivo: ' + (p.goal || '—');
+  $('#sideUserGoal').textContent = `${t('goalPrefix')}: ${goalLabel(p.goal)}`;
 }
 
 /* =====================================================================
@@ -1551,10 +1994,10 @@ function initGlobalSearch() {
     if (q.length < 2) { box.classList.remove('open'); return; }
     const hits = [];
     Store.data.workouts.forEach(w => {
-      if (w.name.toLowerCase().includes(q)) hits.push({ type: 'Workout', label: w.name, sub: fmtDateShort(w.date), page: 'allenamento' });
-      w.exercises.forEach(e => { if (e.name.toLowerCase().includes(q)) hits.push({ type: 'Esercizio', label: e.name, sub: `${w.name} · ${fmtDateShort(w.date)}`, page: 'allenamento' }); });
+      if (w.name.toLowerCase().includes(q)) hits.push({ type: t('srWorkout'), label: w.name, sub: fmtDateShort(w.date), page: 'allenamento' });
+      w.exercises.forEach(e => { if (e.name.toLowerCase().includes(q)) hits.push({ type: t('srExercise'), label: e.name, sub: `${w.name} · ${fmtDateShort(w.date)}`, page: 'allenamento' }); });
     });
-    Store.data.meals.forEach(m => { if (m.name.toLowerCase().includes(q)) hits.push({ type: 'Alimento', label: m.name, sub: `${m.meal} · ${fmtDateShort(m.date)}`, page: 'alimentazione' }); });
+    Store.data.meals.forEach(m => { if (m.name.toLowerCase().includes(q)) hits.push({ type: t('srFood'), label: m.name, sub: `${mealLabel(m.meal)} · ${fmtDateShort(m.date)}`, page: 'alimentazione' }); });
 
     const uniq = [];
     const seen = new Set();
@@ -1562,7 +2005,7 @@ function initGlobalSearch() {
 
     box.innerHTML = uniq.length
       ? uniq.map(h => `<div class="sr-item" data-page="${h.page}"><span class="sr-type">${h.type}</span><span>${esc(h.label)}</span><span style="margin-left:auto;color:var(--text-faint);font-size:11px">${esc(h.sub)}</span></div>`).join('')
-      : `<div class="sr-empty">Nessun risultato per "${esc(q)}"</div>`;
+      : `<div class="sr-empty">${t('noResFor')} "${esc(q)}"</div>`;
     box.classList.add('open');
     $$('.sr-item', box).forEach(el => el.onclick = () => { box.classList.remove('open'); input.value = ''; Router.go(el.dataset.page); });
   };
@@ -1571,19 +2014,20 @@ function initGlobalSearch() {
 
 function initNotifications() {
   const panel = $('#notifPanel');
-  const streak = Stats.streak();
-  const mac = Stats.dayMacros(todayISO());
-  const g = Store.data.goals;
-  const items = [
-    { icon: 'flame', text: `Streak di ${streak} giorni: continua così!`, time: 'oggi' },
-    { icon: 'activity', text: `Proteine: ${Math.round(mac.protein)}/${g.protein} g raggiunti`, time: 'oggi' },
-    { icon: 'ruler', text: 'Ricordati la misurazione settimanale', time: '2 g' },
-    { icon: 'trophy', text: 'Controlla i tuoi nuovi record personali', time: '3 g' },
-  ];
-  panel.innerHTML = `<div class="notif-head">Notifiche</div>` +
-    items.map(n => `<div class="notif-item"><span style="color:var(--text-soft)">${ic(n.icon)}</span><span>${esc(n.text)}</span><span class="n-time">${n.time}</span></div>`).join('');
-
-  $('#notifBtn').onclick = e => { e.stopPropagation(); panel.classList.toggle('open'); };
+  const render = () => {
+    const streak = Stats.streak();
+    const mac = Stats.dayMacros(todayISO());
+    const g = Store.data.goals;
+    const items = [
+      { icon: 'flame', text: t('nStreak', streak), time: t('today') },
+      { icon: 'activity', text: t('nProtein', Math.round(mac.protein), g.protein), time: t('today') },
+      { icon: 'ruler', text: t('nMeasure'), time: '2 g' },
+      { icon: 'trophy', text: t('nPr'), time: '3 g' },
+    ];
+    panel.innerHTML = `<div class="notif-head">${t('notifs')}</div>` +
+      items.map(n => `<div class="notif-item"><span style="color:var(--text-soft)">${ic(n.icon)}</span><span>${esc(n.text)}</span><span class="n-time">${n.time}</span></div>`).join('');
+  };
+  $('#notifBtn').onclick = e => { e.stopPropagation(); render(); panel.classList.toggle('open'); };
   document.addEventListener('click', e => { if (!e.target.closest('#notifPanel') && !e.target.closest('#notifBtn')) panel.classList.remove('open'); });
 }
 
@@ -1598,7 +2042,7 @@ function initTheme() {
     document.documentElement.dataset.theme = next;
     localStorage.setItem('fws-theme', next);
     setIcon();
-    if (!document.body.classList.contains('auth-locked')) Router.render(); // grafici con colori del nuovo tema
+    if (!document.body.classList.contains('auth-locked')) Router.render();
   };
 }
 
@@ -1653,6 +2097,7 @@ const Router = {
 function startApp(user) {
   Store.init(user);
   document.body.classList.remove('auth-locked');
+  applyStaticLang();
   applyUserToUI(user);
   initProfileMenu(user);
   initGlobalSearch();
@@ -1663,14 +2108,20 @@ function startApp(user) {
   Router.render();
 
   if (!user.onboarded) onboardingForm(user);
+
+  Fitbit.autoSync(); // sync silenziosa (max 1/giorno) se connesso
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  Lang.set(Lang.lang); // imposta <html lang>
   hydrateIcons();
   initTheme();
   initNav();
 
   const user = Auth.current();
-  if (user) startApp(user);
-  else renderAuthScreen();
+  if (user) {
+    // Ritorno dal flusso OAuth Fitbit (?code=...) → scambio token prima del render
+    if (location.search.includes('code=')) await Fitbit.handleRedirect();
+    startApp(user);
+  } else renderAuthScreen();
 });
