@@ -17,7 +17,7 @@ const GOOGLE_CLIENT_ID = '99699687508-64rr056nisltqktkaqp1ur0ipfspp1ie.apps.goog
    Application Type: "Client", Redirect URL: l'URL esatto del sito,
    es. https://<utente>.github.io/fitwithscience/ ).
    PKCE: nessun client secret necessario, funziona da sito statico. */
-const FITBIT_CLIENT_ID = 'YOUR_FITBIT_CLIENT_ID';
+const FITBIT_CLIENT_ID = 'YOUR_FITBIT_CLIENT_ID'; 
 
 /* =====================================================================
    I18N — dizionari italiano / inglese
