@@ -16,7 +16,10 @@ window.FWS_I18N.en = {
   optional: 'Optional', csvExported: 'CSV exported', today: 'today',
   // Nav
   navDash: 'Dashboard', navMeas: 'Body Measurements', navWork: 'Training', navFood: 'Nutrition', navProg: 'Progress',
+  navCal: 'Calendar', bnavCal: 'Calendar',
   bnavHome: 'Home', bnavMeas: 'Measures', bnavWork: 'Workout', bnavFood: 'Food', bnavProg: 'Progress',
+  calSub: 'Workouts and meals per day', calToday: 'Today',
+  allMeasChart: 'All measurements', allMeasSub: 'Click the legend to show/hide series',
   brandTag: 'Train smarter', searchPh: 'Search workouts, exercises, foods…',
   // Auth
   aLogin: 'Sign in', aRegister: 'Sign up', aEmail: 'Email', aPw: 'Password', aPw2: 'Confirm password',
@@ -96,6 +99,7 @@ window.FWS_I18N.en = {
   firstWorkHint: 'Create your first workout or start from a template.', totalSets: 'Total sets',
   workName: 'Workout name', muscleGroup: 'Muscle group', notes: 'Notes', exercise: 'Exercise',
   addExercise: 'Add exercise', sets: 'Sets', reps: 'Reps', rest: 'Rest (s)',
+  modeReps: 'Reps', modeTime: 'Time', durationS: 'Duration (s)', moreGroups: 'More…',
   duplicate: 'Duplicate', saveTemplate: 'Save as template', tplSaved: 'Template saved', tplDeleted: 'Template deleted',
   minOneEx: 'At least one exercise required', editWork: 'Edit workout',
   tplTitle: 'Workout templates', noTpl: 'No templates',
@@ -106,13 +110,16 @@ window.FWS_I18N.en = {
   glasses: 'glasses', weekSummary: 'Weekly summary', foodItem: 'Food',
   noFood: 'No food logged.', addTo: 'Add to {0}', editFood: 'Edit food',
   foodName: 'Food name', qty: 'Quantity', meal: 'Meal', kcalUnit: 'Calories (kcal)',
+  grams: 'Grams', per100: 'per 100 g', searchOnline: 'Search online', searching: 'Searching…',
+  noOnlineRes: 'No online results', onlineErr: 'Online search failed',
+  foodDbAdded: '"{0}" added to the food database', autoCalc: 'Values computed from grams — editable',
   delFoodConfirm: 'Delete this food?', foodDeleted: 'Food deleted',
   foodAdded: 'Food added', foodUpdated: 'Food updated',
   // Progress
   progSub: 'Historical analysis and comparisons', week: 'Week', month: 'Month', year: 'Year', all: 'All',
   inPeriod: 'In period', sessions: 'Sessions', hoursTotal: 'total hours', lifted: 'Weight lifted',
   girth: 'Girth', selPeriod: 'In the selected period', keyGirths: 'Key girths',
-  girthsSub: 'Waist, chest, right arm', dailyIntake: 'Daily intake', loadTrend: 'Load trend',
+  girthsSub: 'Waist, chest, arm', dailyIntake: 'Daily intake', loadTrend: 'Load trend',
   pctImprove: 'Percentage improvements', firstToLast: 'From first to last record in the period',
   measureCol: 'Measure', valuesCol: 'Values', insufficient: 'Not enough data in the selected period.',
   // Compare

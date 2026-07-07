@@ -113,8 +113,8 @@ function hydrateIcons(root = document) {
 
 /* Aggiorna le etichette statiche di index.html secondo la lingua attiva */
 function applyStaticLang() {
-  const navMap = { dashboard: 'navDash', misure: 'navMeas', allenamento: 'navWork', alimentazione: 'navFood', progressi: 'navProg' };
-  const bnavMap = { dashboard: 'bnavHome', misure: 'bnavMeas', allenamento: 'bnavWork', alimentazione: 'bnavFood', progressi: 'bnavProg' };
+  const navMap = { dashboard: 'navDash', misure: 'navMeas', allenamento: 'navWork', alimentazione: 'navFood', calendario: 'navCal', progressi: 'navProg' };
+  const bnavMap = { dashboard: 'bnavHome', misure: 'bnavMeas', allenamento: 'bnavWork', alimentazione: 'bnavFood', calendario: 'bnavCal', progressi: 'bnavProg' };
   $$('.nav-item').forEach(n => { $('.nav-label', n).textContent = t(navMap[n.dataset.page]); });
   $$('.bnav-item').forEach(n => { n.lastChild.textContent = t(bnavMap[n.dataset.page]); });
   $('.brand-tag').textContent = t('brandTag');
@@ -169,13 +169,11 @@ const Auth = {
   loginGoogle(payload) {
     let user = this.users().find(u => u.provider === 'google' && u.googleSub === payload.sub);
     if (!user) {
-      user = {
-        id: uid(), email: payload.email, provider: 'google', googleSub: payload.sub,
-        onboarded: false, createdAt: todayISO(),
-        prefill: { firstName: payload.given_name || '', lastName: payload.family_name || '', avatar: payload.picture || null },
-      };
-      this.updateUser(user);
+      user = { id: uid(), email: payload.email, provider: 'google', googleSub: payload.sub, onboarded: false, createdAt: todayISO() };
     }
+    // Prefill aggiornato a ogni login (nome + foto profilo Google)
+    user.prefill = { firstName: payload.given_name || '', lastName: payload.family_name || '', avatar: payload.picture || null };
+    this.updateUser(user);
     localStorage.setItem(this.SESS_KEY, user.id);
     return user;
   },
@@ -213,7 +211,24 @@ const Store = {
     if (!this.data || !this.data.profile || !Array.isArray(this.data.measurements)) {
       this.data = user.id === 'demo' ? this.seedDemo() : this.blank();
     }
+    this.migrate();
     this.save();
+  },
+
+  /* Migrazione schema: dx/sx → misura unica (media se entrambe), torace rimosso */
+  migrate() {
+    const pairs = [['arm', 'armR', 'armL'], ['forearm', 'forearmR', 'forearmL'], ['thigh', 'thighR', 'thighL'], ['calf', 'calfR', 'calfL']];
+    this.data.measurements.forEach(m => {
+      pairs.forEach(([k, r, l]) => {
+        if (m[k] == null && (m[r] != null || m[l] != null)) {
+          m[k] = m[r] != null && m[l] != null ? round1((m[r] + m[l]) / 2) : (m[r] ?? m[l]);
+        }
+        delete m[r]; delete m[l];
+      });
+      delete m.torso;
+    });
+    if (!Array.isArray(this.data.customFoods)) this.data.customFoods = [];
+    if (!Array.isArray(this.data.customExercises)) this.data.customExercises = [];
   },
 
   save() { localStorage.setItem(this.key, JSON.stringify(this.data)); },
@@ -222,7 +237,7 @@ const Store = {
     return {
       profile: { firstName: '', lastName: '', age: null, height: null, sex: 'na', goal: 'recomp', bio: '', avatar: null },
       goals: { kcal: 2400, protein: 170, carbs: 260, fat: 75, waterGlasses: 8, weeklyWorkouts: 4 },
-      measurements: [], workouts: [], templates: [], meals: [], water: {},
+      measurements: [], workouts: [], templates: [], meals: [], water: {}, customFoods: [], customExercises: [],
     };
   },
 
@@ -256,13 +271,13 @@ const Store = {
         id: uid() + w, date: daysAgo(w * 7),
         weight: round1(84.2 - 4.2 * tt + noise()), height: 178,
         neck: round1(39.5 - 0.6 * tt + noise() * 0.3), shoulders: round1(118 + 1.2 * tt + noise() * 0.4),
-        chest: round1(103 + 0.8 * tt + noise() * 0.4), torso: round1(98 - 1.5 * tt + noise() * 0.4),
+        chest: round1(103 + 0.8 * tt + noise() * 0.4),
         waist: round1(88 - 4.5 * tt + noise() * 0.5), abdomen: round1(91 - 4.8 * tt + noise() * 0.5),
         hips: round1(99 - 2.2 * tt + noise() * 0.4),
-        armR: round1(35.5 + 1.1 * tt + noise() * 0.2), armL: round1(35.1 + 1.1 * tt + noise() * 0.2),
-        forearmR: round1(29.2 + 0.5 * tt + noise() * 0.2), forearmL: round1(28.9 + 0.5 * tt + noise() * 0.2),
-        thighR: round1(58.5 + 0.9 * tt + noise() * 0.3), thighL: round1(58.2 + 0.9 * tt + noise() * 0.3),
-        calfR: round1(37.8 + 0.4 * tt + noise() * 0.2), calfL: round1(37.6 + 0.4 * tt + noise() * 0.2),
+        arm: round1(35.3 + 1.1 * tt + noise() * 0.2),
+        forearm: round1(29 + 0.5 * tt + noise() * 0.2),
+        thigh: round1(58.4 + 0.9 * tt + noise() * 0.3),
+        calf: round1(37.7 + 0.4 * tt + noise() * 0.2),
         bodyFat: round1(21 - 4 * tt + noise() * 0.4),
       });
     }
@@ -507,7 +522,8 @@ const Stats = {
     return m && h ? round1(m.weight / ((h / 100) ** 2)) : null;
   },
 
-  workoutVolume(w) { return w.exercises.reduce((tt, e) => tt + e.sets * e.reps * e.weight, 0); },
+  /* Volume: reps → serie×rip×kg; durata (es. plank) → serie×kg (i secondi non sono volume) */
+  workoutVolume(w) { return w.exercises.reduce((tt, e) => tt + (e.mode === 'time' ? e.sets * e.weight : e.sets * e.reps * e.weight), 0); },
   sortedWorkouts() { return [...Store.data.workouts].sort((a, b) => b.date.localeCompare(a.date)); },
 
   streak() {
@@ -538,7 +554,7 @@ const Stats = {
   personalRecords() {
     const best = {};
     Store.data.workouts.forEach(w => w.exercises.forEach(e => {
-      if (!e.weight) return;
+      if (!e.weight || e.mode === 'time') return; // Epley non ha senso sui secondi
       const orm = e.weight * (1 + e.reps / 30); // 1RM stimato (Epley)
       if (!best[e.name] || orm > best[e.name].orm) best[e.name] = { orm, weight: e.weight, reps: e.reps, date: w.date, name: e.name };
     }));
@@ -634,13 +650,13 @@ const M_FIELDS = [
   { key: 'weight', it: 'Peso', en: 'Weight', unit: 'kg' }, { key: 'height', it: 'Altezza', en: 'Height', unit: 'cm' },
   { key: 'bodyFat', it: 'Massa grassa', en: 'Body fat', unit: '%' },
   { key: 'neck', it: 'Collo', en: 'Neck', unit: 'cm' }, { key: 'shoulders', it: 'Spalle', en: 'Shoulders', unit: 'cm' },
-  { key: 'chest', it: 'Petto', en: 'Chest', unit: 'cm' }, { key: 'torso', it: 'Torace', en: 'Torso', unit: 'cm' },
+  { key: 'chest', it: 'Petto', en: 'Chest', unit: 'cm' },
   { key: 'waist', it: 'Vita', en: 'Waist', unit: 'cm' }, { key: 'abdomen', it: 'Addome', en: 'Abdomen', unit: 'cm' },
   { key: 'hips', it: 'Fianchi', en: 'Hips', unit: 'cm' },
-  { key: 'armR', it: 'Braccio dx', en: 'Right arm', unit: 'cm' }, { key: 'armL', it: 'Braccio sx', en: 'Left arm', unit: 'cm' },
-  { key: 'forearmR', it: 'Avambraccio dx', en: 'Right forearm', unit: 'cm' }, { key: 'forearmL', it: 'Avambraccio sx', en: 'Left forearm', unit: 'cm' },
-  { key: 'thighR', it: 'Coscia dx', en: 'Right thigh', unit: 'cm' }, { key: 'thighL', it: 'Coscia sx', en: 'Left thigh', unit: 'cm' },
-  { key: 'calfR', it: 'Polpaccio dx', en: 'Right calf', unit: 'cm' }, { key: 'calfL', it: 'Polpaccio sx', en: 'Left calf', unit: 'cm' },
+  { key: 'arm', it: 'Braccio', en: 'Arm', unit: 'cm' },
+  { key: 'forearm', it: 'Avambraccio', en: 'Forearm', unit: 'cm' },
+  { key: 'thigh', it: 'Coscia', en: 'Thigh', unit: 'cm' },
+  { key: 'calf', it: 'Polpaccio', en: 'Calf', unit: 'cm' },
 ];
 const fl = f => f[Lang.lang] || f.it;
 
@@ -811,6 +827,9 @@ const Pages = {
           <div class="chart-wrap"><canvas id="chDeltas"></canvas></div></div>
       </div>
 
+      <div class="card mt"><div class="card-title">${t('allMeasChart')}</div><div class="card-sub">${t('allMeasSub')}</div>
+        <div class="chart-wrap tall"><canvas id="chAllMeas"></canvas></div></div>
+
       <div class="card table-card mt">
         <div class="table-toolbar"><div class="card-title">${t('historyMeas')}</div>
           <div class="spacer">
@@ -832,8 +851,8 @@ const Pages = {
       { key: 'waist', label: fl(F('waist')), render: r => r.waist ?? '—' },
       { key: 'chest', label: fl(F('chest')), render: r => r.chest ?? '—' },
       { key: 'hips', label: fl(F('hips')), render: r => r.hips ?? '—' },
-      { key: 'armR', label: fl(F('armR')), render: r => r.armR ?? '—' },
-      { key: 'thighR', label: fl(F('thighR')), render: r => r.thighR ?? '—' },
+      { key: 'arm', label: fl(F('arm')), render: r => r.arm ?? '—' },
+      { key: 'thigh', label: fl(F('thigh')), render: r => r.thigh ?? '—' },
     ];
     const table = renderTable({
       mountId: 'mTable', columns: cols, rows: Store.data.measurements, csvName: 'misure',
@@ -865,6 +884,27 @@ const Pages = {
     };
     drawMetric('weight');
     $('#mMetric').onchange = e => drawMetric(e.target.value);
+
+    // Grafico unico con tutte le misure: linea+punti, un colore per tipologia
+    {
+      const ms = Stats.sortedMeasurements();
+      const palette = ['#10b981', '#2563eb', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6', '#6366f1', '#a855f7'];
+      const fields = M_FIELDS.filter(f => f.key !== 'height'); // l'altezza è costante
+      Charts.make('chAllMeas', {
+        type: 'line',
+        data: {
+          labels: ms.map(m => fmtDateShort(m.date)),
+          datasets: fields.map((f, i) => ({
+            label: `${fl(f)} (${f.unit})`,
+            data: ms.map(m => m[f.key]),
+            borderColor: palette[i % palette.length],
+            backgroundColor: palette[i % palette.length],
+            tension: .3, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2, spanGaps: true, fill: false,
+          })),
+        },
+        options: Charts.baseOpts(),
+      });
+    }
 
     const s = Stats.sortedMeasurements();
     if (s.length >= 2) {
@@ -1075,6 +1115,78 @@ const Pages = {
     });
   },
 
+  /* ------------------------------------------------ CALENDARIO */
+  calendario() {
+    return `
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title"><h1>${t('navCal')}</h1><p>${t('calSub')}</p></div>
+        <div class="actions cal-head" style="margin:0">
+          <button class="btn-icon" id="calPrev">‹</button>
+          <span class="cal-title" id="calTitle"></span>
+          <button class="btn-icon" id="calNext">›</button>
+          <button class="btn btn-sm" id="calToday">${t('calToday')}</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cal-weekdays" id="calWeekdays"></div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-legend">
+          <span><span class="cal-dot w"></span>${t('qWorkout')}</span>
+          <span><span class="cal-dot m"></span>${t('qMeal')}</span>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  calendarioMount() {
+    const draw = () => {
+      const [y, mo] = State.calMonth.split('-').map(Number);
+      const monthStart = new Date(y, mo - 1, 1);
+
+      // Titolo mese localizzato
+      $('#calTitle').textContent = monthStart.toLocaleDateString(locale(), { month: 'long', year: 'numeric' });
+
+      // Intestazione giorni (settimana da lunedì)
+      const wd = [...Array(7)].map((_, i) =>
+        new Date(2026, 5, i + 1).toLocaleDateString(locale(), { weekday: 'short' })); // 1 giu 2026 = lunedì
+      $('#calWeekdays').innerHTML = wd.map(d => `<span>${d}</span>`).join('');
+
+      // Indici: allenamenti e kcal per data
+      const wByDate = {};
+      Store.data.workouts.forEach(w => (wByDate[w.date] = wByDate[w.date] || []).push(w));
+      const kcalByDate = {};
+      Store.data.meals.forEach(m => kcalByDate[m.date] = (kcalByDate[m.date] || 0) + m.kcal);
+
+      // Griglia: da lunedì della settimana del 1° del mese, 6 settimane
+      const firstDow = (monthStart.getDay() + 6) % 7; // 0 = lunedì
+      const cells = [];
+      for (let i = 0; i < 42; i++) {
+        const d = new Date(y, mo - 1, 1 - firstDow + i);
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const inMonth = d.getMonth() === mo - 1;
+        const nW = (wByDate[iso] || []).length;
+        const kcal = Math.round(kcalByDate[iso] || 0);
+        cells.push(`<button type="button" class="cal-cell ${inMonth ? '' : 'out'} ${iso === todayISO() ? 'today' : ''}" data-day="${inMonth ? iso : ''}">
+          <span class="cal-num">${d.getDate()}</span>
+          <span class="cal-marks">
+            ${'<span class="cal-dot w"></span>'.repeat(Math.min(nW, 3))}
+            ${kcal ? '<span class="cal-dot m"></span>' : ''}
+          </span>
+          ${kcal ? `<span class="cal-kcal">${kcal} kcal</span>` : ''}
+        </button>`);
+      }
+      $('#calGrid').innerHTML = cells.join('');
+
+      $$('#calGrid [data-day]').forEach(c => c.onclick = () => { if (c.dataset.day) calendarDayDialog(c.dataset.day); });
+    };
+
+    $('#calPrev').onclick = () => { State.calMonth = shiftMonth(State.calMonth, -1); draw(); };
+    $('#calNext').onclick = () => { State.calMonth = shiftMonth(State.calMonth, 1); draw(); };
+    $('#calToday').onclick = () => { State.calMonth = todayISO().slice(0, 7); draw(); };
+    draw();
+  },
+
   /* ------------------------------------------------ PROGRESSI */
   progressi() {
     return `
@@ -1137,7 +1249,7 @@ const Pages = {
         datasets: [
           { label: fl(F('waist')), data: ms.map(m => m.waist), borderColor: Charts.colors.emerald, tension: .35, pointRadius: 2, borderWidth: 2, spanGaps: true },
           { label: fl(F('chest')), data: ms.map(m => m.chest), borderColor: Charts.colors.blue, tension: .35, pointRadius: 2, borderWidth: 2, spanGaps: true },
-          { label: fl(F('armR')), data: ms.map(m => m.armR), borderColor: Charts.colors.purple, tension: .35, pointRadius: 2, borderWidth: 2, spanGaps: true },
+          { label: fl(F('arm')), data: ms.map(m => m.arm), borderColor: Charts.colors.purple, tension: .35, pointRadius: 2, borderWidth: 2, spanGaps: true },
         ],
       },
       options: Charts.baseOpts(),
@@ -1161,7 +1273,7 @@ const Pages = {
       const rows = M_FIELDS.filter(f => f.key !== 'height' && first[f.key] != null && last[f.key] != null).map(f => {
         const d = round1(last[f.key] - first[f.key]);
         const pct = first[f.key] ? round1(d / first[f.key] * 100) : 0;
-        const good = ['waist', 'abdomen', 'hips', 'weight', 'bodyFat', 'neck', 'torso'].includes(f.key) ? d <= 0 : d >= 0;
+        const good = ['waist', 'abdomen', 'hips', 'weight', 'bodyFat', 'neck'].includes(f.key) ? d <= 0 : d >= 0;
         return `<span class="cmp-label">${fl(f)}</span>
           <span>${first[f.key]} → ${last[f.key]} ${f.unit}</span>
           <span class="cmp-delta" style="color:${good ? 'var(--emerald)' : 'var(--red)'}">${d > 0 ? '+' : ''}${d} (${pct > 0 ? '+' : ''}${pct}%)</span>`;
@@ -1202,21 +1314,79 @@ function measurementForm(existing = null) {
   });
 }
 
+/* Gruppi muscolari selezionabili a pill (chiave canonica IT + etichetta EN) */
+const MUSCLE_GROUPS = [
+  { k: 'Petto', en: 'Chest' }, { k: 'Dorso', en: 'Back' }, { k: 'Spalle', en: 'Shoulders' },
+  { k: 'Bicipiti', en: 'Biceps' }, { k: 'Tricipiti', en: 'Triceps' }, { k: 'Gambe', en: 'Legs' },
+  { k: 'Femorali', en: 'Hamstrings' }, { k: 'Glutei', en: 'Glutes' }, { k: 'Polpacci', en: 'Calves' },
+  { k: 'Core', en: 'Core' }, { k: 'Cardio', en: 'Cardio' }, { k: 'Altro', en: 'Other' },
+];
+const gLabel = g => Lang.lang === 'en' ? g.en : g.k;
+
+/* Gruppi principali sempre visibili; gli altri compaiono con "Altri…" */
+const MAIN_GROUP_KEYS = ['Petto', 'Dorso', 'Spalle', 'Bicipiti', 'Tricipiti', 'Gambe', 'Core'];
+
+/* Database esercizi: statico (exercises-db.js) + personalizzati dell'utente */
+function allExercises() { return [...(window.FWS_EXERCISES || []), ...(Store.data.customExercises || [])]; }
+function findExercise(name) {
+  const q = name.trim().toLowerCase();
+  return allExercises().find(x => x.name.toLowerCase() === q) || null;
+}
+
+/* Seleziona la pill del gruppo nel blocco (espande i secondari se serve) */
+function setBlockGroup(bl, groupKey) {
+  $('[data-f="group"]', bl).value = groupKey;
+  const extra = $('.gpill-extra', bl);
+  const target = $$('.gpill', bl).find(p => p.dataset.g === groupKey);
+  if (target && extra.contains(target)) { extra.hidden = false; $('.gpill-more', bl).classList.add('active'); }
+  $$('.gpill', bl).forEach(p => { if (!p.classList.contains('gpill-more')) p.classList.toggle('active', p === target); });
+}
+
+/* Campo numerico con stepper −/＋ */
+function stepperHTML(f, val, step, { min = 0, max = null, req = false } = {}) {
+  return `<div class="stepper" data-min="${min}" ${max != null ? `data-max="${max}"` : ''}>
+    <button type="button" class="st-btn" data-step="${-step}">−</button>
+    <input type="number" min="${min}" class="exf" data-f="${f}" ${req ? 'data-req data-pos' : ''} value="${val}">
+    <button type="button" class="st-btn" data-step="${step}">＋</button>
+  </div>`;
+}
+
 function exerciseBlockHTML(e = {}) {
   const id = e.id || uid();
-  return `<div class="ex-block" data-exid="${id}">
-    <div class="ex-block-head"><b>${t('exercise')}</b><button class="btn-icon danger ex-del" title="${t('del')}">${ic('trash')}</button></div>
-    <div class="form-grid">
-      <div class="field full"><label>${t('name')} *</label><input class="exf" data-f="name" data-req value="${esc(e.name || '')}" placeholder="${t('phExName')}"><div class="err-msg">${t('required')}</div></div>
-      <div class="field"><label>${t('muscleGroup')}</label><input class="exf" data-f="group" value="${esc(e.group || '')}" placeholder="Petto"></div>
-      <div class="field"><label>${t('sets')} *</label><input type="number" min="1" class="exf" data-f="sets" data-req data-pos value="${e.sets ?? 3}"><div class="err-msg">${t('required')}</div></div>
-      <div class="field"><label>${t('reps')} *</label><input type="number" min="1" class="exf" data-f="reps" data-req data-pos value="${e.reps ?? 10}"><div class="err-msg">${t('required')}</div></div>
-      <div class="field"><label>${t('weightKg')}</label><input type="number" step="0.5" min="0" class="exf" data-f="weight" value="${e.weight ?? 0}"></div>
-      <div class="field"><label>${t('rest')}</label><input type="number" min="0" step="15" class="exf" data-f="rest" value="${e.rest ?? 90}"></div>
-      <div class="field full"><label>RPE: <span class="range-val">${e.rpe ?? 8}</span></label>
-        <input type="range" min="1" max="10" class="exf rpe-slider" data-f="rpe" value="${e.rpe ?? 8}"></div>
-      <div class="field full"><label>${t('notes')}</label><input class="exf" data-f="notes" value="${esc(e.notes || '')}" placeholder="${t('optional')}"></div>
+  const mode = e.mode === 'time' ? 'time' : 'reps';
+  // Nuovo esercizio: nessun gruppo preselezionato (altrimenti il default "Altro",
+  // che è tra i secondari, aprirebbe sempre la lista estesa)
+  const group = e.group ? (MUSCLE_GROUPS.some(g => g.k === e.group) ? e.group : 'Altro') : '';
+  const mains = MUSCLE_GROUPS.filter(g => MAIN_GROUP_KEYS.includes(g.k));
+  const extras = MUSCLE_GROUPS.filter(g => !MAIN_GROUP_KEYS.includes(g.k));
+  const extraOpen = extras.some(g => g.k === group); // gruppo salvato tra i secondari → mostra espanso
+  const pill = g => `<button type="button" class="gpill ${group === g.k ? 'active' : ''}" data-g="${g.k}">${gLabel(g)}</button>`;
+
+  return `<div class="ex-block" data-exid="${id}" data-notes="${esc(e.notes || '')}">
+    <div class="ex-row-top">
+      <div class="field fs-wrap"><input class="exf ex-name" data-f="name" data-req value="${esc(e.name || '')}" placeholder="${t('phExName')} *" autocomplete="off">
+        <div class="fs-list ex-suggest"></div></div>
+      <div class="mode-toggle">
+        <button type="button" class="mchip ${mode === 'reps' ? 'active' : ''}" data-mode="reps">${t('modeReps')}</button>
+        <button type="button" class="mchip ${mode === 'time' ? 'active' : ''}" data-mode="time">${t('modeTime')}</button>
+      </div>
+      <button type="button" class="btn-icon danger ex-del" title="${t('del')}">${ic('trash')}</button>
     </div>
+    <div class="gpill-row">
+      ${mains.map(pill).join('')}
+      <button type="button" class="gpill gpill-more ${extraOpen ? 'active' : ''}">${t('moreGroups')}</button>
+      <span class="gpill-extra" ${extraOpen ? '' : 'hidden'}>${extras.map(pill).join('')}</span>
+    </div>
+    <div class="ex-grid">
+      <div class="field"><label>${t('sets')} *</label>${stepperHTML('sets', e.sets ?? 3, 1, { min: 1, req: true })}</div>
+      <div class="field"><label class="reps-label">${mode === 'time' ? t('durationS') : t('reps')} *</label>
+        ${stepperHTML('reps', e.reps ?? (mode === 'time' ? 60 : 10), mode === 'time' ? 15 : 1, { min: 1, req: true })}</div>
+      <div class="field"><label>${t('weightKg')}</label>${stepperHTML('weight', e.weight ?? 0, 2.5)}</div>
+      <div class="field"><label>${t('rest')}</label>${stepperHTML('rest', e.rest ?? 90, 15)}</div>
+      <div class="field"><label>RPE</label>${stepperHTML('rpe', e.rpe ?? 8, 1, { min: 1, max: 10 })}</div>
+    </div>
+    <input type="hidden" data-f="group" value="${esc(group)}">
+    <input type="hidden" data-f="mode" value="${mode}">
   </div>`;
 }
 
@@ -1229,7 +1399,6 @@ function workoutForm(existing = null, fromTemplate = null) {
       <div class="field"><label>${t('muscleGroup')}</label>
         <select id="fwGroup">${['Upper Body', 'Lower Body', 'Full Body', 'Push', 'Pull', 'Legs', 'Altro'].map(g => `<option ${w.group === g ? 'selected' : ''}>${g}</option>`).join('')}</select></div>
       <div class="field"><label>${t('durationMin')}</label><input type="number" min="0" id="fwDur" value="${w.duration}"></div>
-      <div class="field full"><label>${t('notes')}</label><textarea id="fwNotes" placeholder="${t('optional')}">${esc(w.notes || '')}</textarea></div>
     </div>
     <div style="margin:16px 0 10px;font-weight:700;font-size:14px">${t('exsCol')}</div>
     <div id="exList">${w.exercises.map(e => exerciseBlockHTML(e)).join('')}</div>
@@ -1245,7 +1414,57 @@ function workoutForm(existing = null, fromTemplate = null) {
           if ($$('.ex-block', root).length === 1) { Toast.show(t('minOneEx'), 'error'); return; }
           b.closest('.ex-block').remove();
         });
-        $$('.rpe-slider', root).forEach(s => s.oninput = () => { s.closest('.field').querySelector('.range-val').textContent = s.value; });
+        // Toggle Ripetizioni/Durata (es. plank): cambia label e passo dello stepper
+        $$('.mchip', root).forEach(b => b.onclick = () => {
+          const bl = b.closest('.ex-block');
+          const time = b.dataset.mode === 'time';
+          $$('.mchip', bl).forEach(x => x.classList.toggle('active', x === b));
+          $('[data-f="mode"]', bl).value = b.dataset.mode;
+          $('.reps-label', bl).innerHTML = (time ? t('durationS') : t('reps')) + ' *';
+          const repsStepper = $('[data-f="reps"]', bl).closest('.stepper');
+          $$('.st-btn', repsStepper).forEach(sb => { sb.dataset.step = (Number(sb.dataset.step) < 0 ? -1 : 1) * (time ? 15 : 1); });
+        });
+        // Pill gruppo muscolare (selezione singola; "Altri…" espande i secondari)
+        $$('.gpill', root).forEach(b => b.onclick = () => {
+          const bl = b.closest('.ex-block');
+          if (b.classList.contains('gpill-more')) {
+            const extra = $('.gpill-extra', bl);
+            extra.hidden = !extra.hidden; // toggle: il pulsante resta visibile
+            b.classList.toggle('active', !extra.hidden);
+            return;
+          }
+          $$('.gpill', bl).forEach(x => x.classList.toggle('active', x === b && !x.classList.contains('gpill-more')));
+          $('[data-f="group"]', bl).value = b.dataset.g;
+        });
+        // Autocomplete nome esercizio (DB locale + personalizzati)
+        $$('.ex-name', root).forEach(inp => {
+          const bl = inp.closest('.ex-block');
+          const list = $('.ex-suggest', bl);
+          inp.oninput = () => {
+            const q = inp.value.trim().toLowerCase();
+            if (q.length < 2) { list.classList.remove('open'); return; }
+            const matches = allExercises().filter(x => x.name.toLowerCase().includes(q)).slice(0, 8);
+            if (!matches.length) { list.classList.remove('open'); return; }
+            list.innerHTML = matches.map((x, i) =>
+              `<button type="button" class="fs-item" data-i="${i}"><span>${esc(x.name)}</span><small>${esc(x.group)}</small></button>`).join('');
+            list.classList.add('open');
+            $$('.fs-item', list).forEach(b => b.onclick = () => {
+              const x = matches[Number(b.dataset.i)];
+              inp.value = x.name;
+              setBlockGroup(bl, x.group); // compila anche la pill del gruppo
+              list.classList.remove('open');
+            });
+          };
+          inp.onblur = () => setTimeout(() => list.classList.remove('open'), 200); // lascia il tempo al click
+        });
+        // Stepper generico −/＋ con clamp min/max
+        $$('.st-btn', root).forEach(b => b.onclick = () => {
+          const wrap = b.closest('.stepper');
+          const inp = $('input', wrap);
+          const min = Number(wrap.dataset.min || 0);
+          const max = wrap.dataset.max !== undefined ? Number(wrap.dataset.max) : Infinity;
+          inp.value = Math.min(max, Math.max(min, round1((Number(inp.value) || 0) + Number(b.dataset.step))));
+        });
       };
       bindBlocks();
       $('#addEx', root).onclick = () => { $('#exList', root).insertAdjacentHTML('beforeend', exerciseBlockHTML()); bindBlocks(); };
@@ -1258,16 +1477,32 @@ function workoutForm(existing = null, fromTemplate = null) {
           date: $('#fwDate', root).value,
           group: $('#fwGroup', root).value,
           duration: Number($('#fwDur', root).value) || 0,
-          notes: $('#fwNotes', root).value.trim(),
+          notes: existing?.notes || '',
           exercises: $$('.ex-block', root).map(bl => {
             const get = f => $(`[data-f="${f}"]`, bl).value;
-            return { id: bl.dataset.exid, name: get('name').trim(), group: get('group').trim() || 'Altro', sets: Number(get('sets')), reps: Number(get('reps')), weight: Number(get('weight')) || 0, rest: Number(get('rest')) || 0, rpe: Number(get('rpe')), notes: get('notes').trim() };
+            return {
+              id: bl.dataset.exid, name: get('name').trim(),
+              group: get('group') || 'Altro', mode: get('mode') === 'time' ? 'time' : 'reps',
+              sets: Number(get('sets')), reps: Number(get('reps')),
+              weight: Number(get('weight')) || 0, rest: Number(get('rest')) || 0,
+              rpe: Number(get('rpe')), notes: bl.dataset.notes || '',
+            };
           }),
         };
       };
 
+      // Esercizi non presenti in DB → aggiunti automaticamente ai personalizzati
+      const learnExercises = rec => {
+        rec.exercises.forEach(e => {
+          if (e.name && !findExercise(e.name)) {
+            Store.data.customExercises.push({ name: e.name, group: e.group || 'Altro' });
+          }
+        });
+      };
+
       $('#fwSave', root).onclick = () => {
         const rec = collect(); if (!rec) return;
+        learnExercises(rec);
         if (existing) {
           const i = Store.data.workouts.findIndex(x => x.id === existing.id);
           Store.data.workouts[i] = rec;
@@ -1278,6 +1513,7 @@ function workoutForm(existing = null, fromTemplate = null) {
       if (existing) {
         $('#fwDup', root).onclick = () => {
           const rec = collect(); if (!rec) return;
+          learnExercises(rec);
           rec.id = uid(); rec.date = todayISO();
           rec.exercises = rec.exercises.map(e => ({ ...e, id: uid() }));
           Store.data.workouts.push(rec);
@@ -1300,7 +1536,7 @@ function templatesDialog() {
     body: tpls.length ? tpls.map(tp => `<div class="list-row">
       <div class="list-ico ico-blue">${ic('clipboard')}</div>
       <div class="list-main"><b>${esc(tp.name)}</b><span>${tp.exercises.length} ${t('exercises')} · ${esc(tp.group)}</span></div>
-      <div class="td-actions">
+      <div class="td-actions" style="margin-left:auto;align-items:center">
         <button class="btn btn-sm btn-primary" data-usetpl="${tp.id}">${t('use')}</button>
         <button class="btn-icon danger" data-deltpl="${tp.id}">${ic('trash')}</button>
       </div></div>`).join('')
@@ -1319,30 +1555,165 @@ function templatesDialog() {
   });
 }
 
+/* Database alimenti: statico (foods-db.js) + personalizzati dell'utente */
+function allFoods() { return [...(window.FWS_FOODS || []), ...(Store.data.customFoods || [])]; }
+
+function findFood(name) {
+  const q = name.trim().toLowerCase();
+  return allFoods().find(fd => fd.name.toLowerCase() === q) || null;
+}
+
+/* Ricerca su Open Food Facts (API pubblica, CORS abilitato) */
+async function searchOpenFoodFacts(query) {
+  const url = 'https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&json=1&page_size=6'
+    + '&fields=product_name,brands,nutriments&search_terms=' + encodeURIComponent(query);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('off ' + res.status);
+  const j = await res.json();
+  return (j.products || []).map(p => {
+    const n = p.nutriments || {};
+    return {
+      name: (p.product_name || '').trim(),
+      brand: (p.brands || '').split(',')[0].trim(),
+      kcal: Number(n['energy-kcal_100g']) || 0,
+      protein: round1(Number(n.proteins_100g) || 0),
+      carbs: round1(Number(n.carbohydrates_100g) || 0),
+      fat: round1(Number(n.fat_100g) || 0),
+    };
+  }).filter(fd => fd.name && fd.kcal > 0);
+}
+
 function foodForm(existing = null, mealKey = 'Colazione') {
   const f = existing || { name: '', qty: '', kcal: '', protein: '', carbs: '', fat: '' };
+  const gramsInit = existing ? (parseFloat(existing.qty) || '') : '';
+  let per100 = existing ? findFood(existing.name) : null; // alimento selezionato dal DB
+
   Modal.open({
     title: existing ? t('editFood') : t('addTo', mealLabel(mealKey)),
     body: `<div class="form-grid">
-      <div class="field full"><label>${t('foodName')} *</label><input id="ffName" data-req value="${esc(f.name)}" placeholder="${t('phFood')}"><div class="err-msg">${t('required')}</div></div>
-      <div class="field"><label>${t('qty')}</label><input id="ffQty" value="${esc(f.qty)}" placeholder="100 g"></div>
+      <div class="field full fs-wrap"><label>${t('foodName')} *</label>
+        <input id="ffName" data-req value="${esc(f.name)}" placeholder="${t('phFood')}" autocomplete="off">
+        <div class="fs-list" id="ffList"></div>
+        <div class="err-msg">${t('required')}</div></div>
+      <div class="field"><label>${t('grams')}</label><input type="number" min="0" id="ffGrams" value="${gramsInit}" placeholder="100"></div>
       <div class="field"><label>${t('meal')}</label>
         <select id="ffMeal">${MEAL_KEYS.map(m => `<option value="${m}" ${(existing?.meal || mealKey) === m ? 'selected' : ''}>${mealLabel(m)}</option>`).join('')}</select></div>
       <div class="field"><label>${t('kcalUnit')} *</label><input type="number" min="0" id="ffKcal" data-req data-pos value="${f.kcal}"><div class="err-msg">${t('required')}</div></div>
       <div class="field"><label>${t('protein')}</label><input type="number" min="0" step="0.1" id="ffP" value="${f.protein}"></div>
       <div class="field"><label>${t('carbs')}</label><input type="number" min="0" step="0.1" id="ffC" value="${f.carbs}"></div>
       <div class="field"><label>${t('fat')}</label><input type="number" min="0" step="0.1" id="ffF" value="${f.fat}"></div>
+      <div class="full" style="font-size:11.5px;color:var(--text-faint)">${t('autoCalc')}</div>
     </div>`,
     footer: `<button class="btn" onclick="Modal.close()">${t('cancel')}</button><button class="btn btn-primary" id="ffSave">${t('save')}</button>`,
     onMount(root) {
-      $('#ffSave', root).onclick = () => {
+      const nameInp = $('#ffName', root), gramsInp = $('#ffGrams', root), list = $('#ffList', root);
+
+      // grammi + alimento selezionato → macro calcolate (per 100 g)
+      const recalc = () => {
+        const g = Number(gramsInp.value);
+        if (!per100 || !g) return;
+        $('#ffKcal', root).value = Math.round(per100.kcal * g / 100);
+        $('#ffP', root).value = round1(per100.protein * g / 100);
+        $('#ffC', root).value = round1(per100.carbs * g / 100);
+        $('#ffF', root).value = round1(per100.fat * g / 100);
+      };
+
+      const pick = fd => {
+        per100 = fd;
+        nameInp.value = fd.name;
+        list.classList.remove('open');
+        if (!gramsInp.value) gramsInp.value = 100;
+        recalc();
+      };
+
+      let debounceT = null;
+      const showSuggestions = () => {
+        const q = nameInp.value.trim().toLowerCase();
+        clearTimeout(debounceT);
+        if (q.length < 2) { list.classList.remove('open'); return; }
+        const matches = allFoods().filter(fd => fd.name.toLowerCase().includes(q)).slice(0, 8);
+
+        // Nessun match locale → ricerca online automatica (debounce)
+        if (!matches.length && q.length >= 3) {
+          list.innerHTML = `<div class="fs-empty">${t('searching')}</div>`;
+          list.classList.add('open');
+          debounceT = setTimeout(() => onlineSearch(nameInp.value.trim()), 500);
+          return;
+        }
+
+        list.innerHTML = matches.map((fd, i) =>
+          `<button type="button" class="fs-item" data-i="${i}"><span>${esc(fd.name)}</span><small>${fd.kcal} kcal · P${fd.protein} C${fd.carbs} G${fd.fat} ${t('per100')}</small></button>`
+        ).join('') + `<button type="button" class="fs-item fs-online" id="ffOnline">${ic('search')} ${t('searchOnline')}: "${esc(nameInp.value.trim())}"</button>`;
+        list.classList.add('open');
+        $$('.fs-item[data-i]', list).forEach(b => b.onclick = () => pick(matches[Number(b.dataset.i)]));
+        $('#ffOnline', list).onclick = () => onlineSearch(nameInp.value.trim());
+      };
+
+      // Alimento assente → cerca su Open Food Facts e aggiungilo al DB personale
+      const onlineSearch = async q => {
+        list.innerHTML = `<div class="fs-empty">${t('searching')}</div>`;
+        try {
+          const results = await searchOpenFoodFacts(q);
+          if (!results.length) { list.innerHTML = `<div class="fs-empty">${t('noOnlineRes')}</div>`; return; }
+          list.innerHTML = results.map((fd, i) =>
+            `<button type="button" class="fs-item" data-i="${i}"><span>${esc(fd.name)}${fd.brand ? ` <small>(${esc(fd.brand)})</small>` : ''}</span><small>${fd.kcal} kcal ${t('per100')}</small></button>`
+          ).join('');
+          $$('.fs-item[data-i]', list).forEach(b => b.onclick = () => {
+            const fd = results[Number(b.dataset.i)];
+            const entry = { name: fd.name, kcal: fd.kcal, protein: fd.protein, carbs: fd.carbs, fat: fd.fat };
+            if (!findFood(entry.name)) {
+              Store.data.customFoods.push(entry);
+              Store.save();
+              Toast.show(t('foodDbAdded', entry.name), 'info');
+            }
+            pick(entry);
+          });
+        } catch { list.innerHTML = `<div class="fs-empty">${t('onlineErr')}</div>`; }
+      };
+
+      nameInp.oninput = () => { per100 = null; showSuggestions(); };
+      gramsInp.oninput = recalc;
+      root.addEventListener('click', e => { if (!e.target.closest('.fs-wrap')) list.classList.remove('open'); });
+
+      $('#ffSave', root).onclick = async () => {
+        // Alimento sconosciuto e kcal vuote → lookup automatico e creazione in DB
+        const typedName = nameInp.value.trim();
+        if (typedName && !findFood(typedName) && !Number($('#ffKcal', root).value)) {
+          Toast.show(t('searching'), 'info');
+          try {
+            const results = await searchOpenFoodFacts(typedName);
+            if (results.length) {
+              const fd = results[0];
+              const entry = { name: fd.name, kcal: fd.kcal, protein: fd.protein, carbs: fd.carbs, fat: fd.fat };
+              if (!findFood(entry.name)) {
+                Store.data.customFoods.push(entry);
+                Store.save();
+                Toast.show(t('foodDbAdded', entry.name), 'info');
+              }
+              pick(entry); // compila nome + valori dai grammi
+            }
+          } catch { /* offline o API giù: si prosegue con la validazione normale */ }
+        }
         if (!validateForm(root)) { Toast.show(t('reqFields'), 'error'); return; }
+        const grams = Number(gramsInp.value) || 0;
         const rec = {
           id: existing?.id || uid(), date: existing?.date || State.foodDate,
-          meal: $('#ffMeal', root).value, name: $('#ffName', root).value.trim(), qty: $('#ffQty', root).value.trim() || '—',
+          meal: $('#ffMeal', root).value, name: nameInp.value.trim(),
+          qty: grams ? `${grams} g` : '—',
           kcal: Number($('#ffKcal', root).value), protein: Number($('#ffP', root).value) || 0,
           carbs: Number($('#ffC', root).value) || 0, fat: Number($('#ffF', root).value) || 0,
         };
+        // Alimento inserito a mano e non in DB → deduci i valori/100g e salvalo
+        if (!findFood(rec.name) && grams > 0 && rec.kcal > 0) {
+          Store.data.customFoods.push({
+            name: rec.name,
+            kcal: Math.round(rec.kcal / grams * 100),
+            protein: round1(rec.protein / grams * 100),
+            carbs: round1(rec.carbs / grams * 100),
+            fat: round1(rec.fat / grams * 100),
+          });
+          Toast.show(t('foodDbAdded', rec.name), 'info');
+        }
         if (existing) {
           const i = Store.data.meals.findIndex(x => x.id === existing.id);
           Store.data.meals[i] = rec;
@@ -1350,6 +1721,44 @@ function foodForm(existing = null, mealKey = 'Colazione') {
         Store.save(); Modal.close(); Toast.show(existing ? t('foodUpdated') : t('foodAdded')); Router.render();
       };
     },
+  });
+}
+
+/* Sposta 'YYYY-MM' di n mesi */
+function shiftMonth(ym, n) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/* Dettaglio giorno: allenamenti + pasti */
+function calendarDayDialog(iso) {
+  const works = Store.data.workouts.filter(w => w.date === iso);
+  const meals = Stats.mealsFor(iso);
+  const mac = Stats.dayMacros(iso);
+
+  const workHTML = works.length ? works.map(w => `<div class="list-row">
+      <div class="list-ico ico-blue">${ic('dumbbell')}</div>
+      <div class="list-main"><b>${esc(w.name)}</b><span>${w.exercises.length} ${t('exercises')} · ${w.duration} min</span></div>
+      <div class="list-end"><b>${Math.round(Stats.workoutVolume(w)).toLocaleString(locale())} kg</b></div>
+    </div>`).join('') : `<div class="empty-state" style="padding:12px"><p>${t('noWork')}</p></div>`;
+
+  const mealHTML = meals.length ? MEAL_KEYS.map(mk => {
+    const foods = meals.filter(m => m.meal === mk);
+    if (!foods.length) return '';
+    const kcal = Math.round(foods.reduce((tt, f) => tt + f.kcal, 0));
+    return `<div style="margin-bottom:8px"><b style="font-size:13px">${mealLabel(mk)}</b> <span class="badge badge-emerald">${kcal} kcal</span>
+      <div style="font-size:12.5px;color:var(--text-soft);margin-top:2px">${foods.map(f => esc(f.name)).join(' · ')}</div></div>`;
+  }).join('') : `<div class="empty-state" style="padding:12px"><p>${t('noFood')}</p></div>`;
+
+  Modal.open({
+    title: fmtDate(iso),
+    body: `
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.04em">${t('navWork')}</div>
+      ${workHTML}
+      <div style="font-weight:700;font-size:13px;margin:16px 0 8px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.04em">${t('navFood')}
+        ${meals.length ? `<span class="badge badge-blue" style="margin-left:6px">${Math.round(mac.kcal)} kcal · P ${Math.round(mac.protein)}g</span>` : ''}</div>
+      ${mealHTML}`,
   });
 }
 
@@ -1374,7 +1783,7 @@ function compareDialog() {
           ${M_FIELDS.filter(f => a[f.key] != null && b[f.key] != null).map(f => {
             const d = round1(b[f.key] - a[f.key]);
             const pct = a[f.key] ? round1(d / a[f.key] * 100) : 0;
-            const good = ['waist', 'abdomen', 'hips', 'weight', 'bodyFat', 'neck', 'torso'].includes(f.key) ? d <= 0 : d >= 0;
+            const good = ['waist', 'abdomen', 'hips', 'weight', 'bodyFat', 'neck'].includes(f.key) ? d <= 0 : d >= 0;
             return `<span class="cmp-label">${fl(f)}</span><span>${a[f.key]} ${f.unit}</span><span>${b[f.key]} ${f.unit}</span>
               <span class="cmp-delta" style="color:${d === 0 ? 'var(--text-faint)' : good ? 'var(--emerald)' : 'var(--red)'}">${d > 0 ? '+' : ''}${d} (${pct > 0 ? '+' : ''}${pct}%)</span>`;
           }).join('')}
@@ -2059,8 +2468,8 @@ function initNav() {
 /* =====================================================================
    ROUTER / BOOT
    ===================================================================== */
-const PAGE_NAMES = ['dashboard', 'misure', 'allenamento', 'alimentazione', 'progressi'];
-const State = { page: 'dashboard', foodDate: todayISO(), range: 0 };
+const PAGE_NAMES = ['dashboard', 'misure', 'allenamento', 'alimentazione', 'calendario', 'progressi'];
+const State = { page: 'dashboard', foodDate: todayISO(), range: 0, calMonth: todayISO().slice(0, 7) };
 
 const Router = {
   go(page) {
@@ -2088,6 +2497,7 @@ const Router = {
     if (p === 'misure') Pages.misureMount();
     if (p === 'allenamento') Pages.allenamentoMount();
     if (p === 'alimentazione') Pages.alimentazioneMount();
+    if (p === 'calendario') Pages.calendarioMount();
     if (p === 'progressi') Pages.progressiMount();
 
     $$('.nav-item, .bnav-item').forEach(n => n.classList.toggle('active', n.dataset.page === p));
@@ -2096,6 +2506,11 @@ const Router = {
 
 function startApp(user) {
   Store.init(user);
+  // Account Google senza foto caricata → usa l'immagine di profilo Google
+  if (user.provider === 'google' && !Store.data.profile.avatar && user.prefill?.avatar) {
+    Store.data.profile.avatar = user.prefill.avatar;
+    Store.save();
+  }
   document.body.classList.remove('auth-locked');
   applyStaticLang();
   applyUserToUI(user);

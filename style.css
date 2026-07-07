@@ -764,18 +764,107 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   border-top: 1px solid var(--border);
 }
 
-/* Exercise sub-blocks in workout modal */
+/* Exercise sub-blocks in workout modal — layout compatto */
 .ex-block {
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 14px;
-  margin-bottom: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
   background: var(--surface-2);
   animation: fadeUp .25s ease;
 }
-.ex-block-head { display: flex; align-items: center; margin-bottom: 10px; }
-.ex-block-head b { font-size: 13px; }
-.ex-block-head .btn-icon { margin-left: auto; }
+
+.ex-row-top { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.ex-row-top .field { flex: 1; margin: 0; }
+.ex-row-top .field input { height: 36px; }
+
+/* Toggle Ripetizioni / Durata */
+.mode-toggle {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+.mchip {
+  border: none;
+  background: transparent;
+  padding: 5px 12px;
+  border-radius: 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-soft);
+  transition: all .15s;
+}
+.mchip.active { background: var(--emerald); color: #fff; }
+
+/* Pill gruppi muscolari — altezza allineata agli altri controlli */
+.gpill-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.gpill {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: all .15s;
+}
+.gpill:hover { border-color: var(--emerald); color: var(--emerald); }
+.gpill.active { background: var(--emerald); border-color: var(--emerald); color: #fff; }
+.gpill-more { border-style: dashed; }
+.gpill-extra[hidden] { display: none; }
+.gpill-extra { display: contents; }
+
+/* Riga eliminazione esercizio */
+.ex-del-row { display: flex; justify-content: flex-end; margin-top: 10px; }
+
+/* Griglia numerica compatta */
+.ex-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 8px; align-items: end; }
+.ex-grid .field { margin: 0; }
+.ex-grid .field label { font-size: 10.5px; margin-bottom: 4px; white-space: nowrap; }
+.ex-grid .field input { height: 34px; font-size: 13px; padding: 0 8px; }
+.ex-grid .rpe-cell { grid-column: span 2; min-width: 150px; }
+
+/* Stepper −/＋ (recupero ±15s) */
+.stepper {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  overflow: hidden;
+  height: 34px;
+}
+.stepper button {
+  width: 30px;
+  border: none;
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: 15px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: background .15s, color .15s;
+}
+.stepper button:hover { background: var(--emerald-soft); color: var(--emerald); }
+.stepper input {
+  width: 100%;
+  min-width: 0;
+  border: none !important;
+  background: transparent !important;
+  text-align: center;
+  height: auto !important;
+  padding: 0 2px !important;
+  box-shadow: none !important;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.stepper input::-webkit-outer-spin-button,
+.stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
 /* =====================================================
    TOASTS
@@ -877,6 +966,91 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .cmp-grid .cmp-h { font-weight: 700; font-size: 11.5px; text-transform: uppercase; color: var(--text-faint); letter-spacing: .04em; }
 .cmp-label { color: var(--text-soft); }
 .cmp-delta { font-weight: 700; text-align: right; }
+
+/* Autocomplete alimenti */
+.fs-wrap { position: relative; }
+.fs-list {
+  display: none;
+  position: absolute;
+  top: 100%; left: 0; right: 0;
+  margin-top: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  max-height: 230px;
+  overflow-y: auto;
+  z-index: 30;
+}
+.fs-list.open { display: block; animation: fadeUp .15s ease; }
+.fs-item {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.fs-item:hover { background: var(--surface-2); }
+.fs-item small { color: var(--text-faint); font-size: 11px; white-space: nowrap; }
+.fs-item.fs-online { color: var(--blue); font-weight: 600; }
+.fs-empty { padding: 10px 12px; font-size: 12.5px; color: var(--text-faint); }
+
+/* =====================================================
+   CALENDARIO
+   ===================================================== */
+.cal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.cal-title { font-size: 16px; font-weight: 800; text-transform: capitalize; min-width: 160px; }
+.cal-weekdays, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-weekdays { margin-bottom: 6px; }
+.cal-weekdays span {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-faint);
+  padding: 4px 0;
+}
+.cal-cell {
+  min-height: 76px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  padding: 6px 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  transition: border-color .15s, transform .15s, box-shadow .2s;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+}
+.cal-cell:hover { border-color: var(--emerald); transform: translateY(-1px); box-shadow: var(--shadow); }
+.cal-cell.out { opacity: .35; cursor: default; }
+.cal-cell.out:hover { border-color: var(--border); transform: none; box-shadow: none; }
+.cal-cell.today { border-color: var(--emerald); background: var(--emerald-soft); }
+.cal-num { font-size: 12.5px; font-weight: 700; }
+.cal-cell.today .cal-num { color: var(--emerald); }
+.cal-marks { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-top: auto; }
+.cal-dot { width: 8px; height: 8px; border-radius: 50%; }
+.cal-dot.w { background: var(--blue); }
+.cal-dot.m { background: var(--emerald); }
+.cal-kcal { font-size: 10px; font-weight: 600; color: var(--text-soft); }
+.cal-legend { display: flex; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--text-soft); align-items: center; }
+.cal-legend .cal-dot { display: inline-block; margin-right: 5px; vertical-align: middle; }
+
+@media (max-width: 600px) {
+  .cal-cell { min-height: 56px; padding: 4px 5px; border-radius: 9px; }
+  .cal-kcal { display: none; }
+}
 
 /* Skeleton loading */
 .skeleton {

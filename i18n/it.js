@@ -16,7 +16,10 @@ window.FWS_I18N.it = {
   optional: 'Opzionale', csvExported: 'CSV esportato', today: 'oggi',
   // Nav
   navDash: 'Dashboard', navMeas: 'Misure Corporee', navWork: 'Allenamento', navFood: 'Alimentazione', navProg: 'Progressi',
+  navCal: 'Calendario', bnavCal: 'Agenda',
   bnavHome: 'Home', bnavMeas: 'Misure', bnavWork: 'Workout', bnavFood: 'Cibo', bnavProg: 'Progressi',
+  calSub: 'Allenamenti e pasti per giorno', calToday: 'Oggi',
+  allMeasChart: 'Tutte le misure', allMeasSub: 'Clicca la legenda per mostrare/nascondere le serie',
   brandTag: 'Train smarter', searchPh: 'Cerca allenamenti, esercizi, alimenti…',
   // Auth
   aLogin: 'Accedi', aRegister: 'Registrati', aEmail: 'Email', aPw: 'Password', aPw2: 'Conferma password',
@@ -96,6 +99,7 @@ window.FWS_I18N.it = {
   firstWorkHint: 'Crea il primo allenamento o parti da un modello.', totalSets: 'Serie totali',
   workName: 'Nome allenamento', muscleGroup: 'Gruppo muscolare', notes: 'Note', exercise: 'Esercizio',
   addExercise: 'Aggiungi esercizio', sets: 'Serie', reps: 'Ripetizioni', rest: 'Recupero (s)',
+  modeReps: 'Rip.', modeTime: 'Durata', durationS: 'Durata (s)', moreGroups: 'Altri…',
   duplicate: 'Duplica', saveTemplate: 'Salva come modello', tplSaved: 'Modello salvato', tplDeleted: 'Modello eliminato',
   minOneEx: 'Serve almeno un esercizio', editWork: 'Modifica allenamento',
   tplTitle: 'Modelli di allenamento', noTpl: 'Nessun modello',
@@ -106,13 +110,16 @@ window.FWS_I18N.it = {
   glasses: 'bicchieri', weekSummary: 'Riepilogo settimanale', foodItem: 'Alimento',
   noFood: 'Nessun alimento registrato.', addTo: 'Aggiungi a {0}', editFood: 'Modifica alimento',
   foodName: 'Nome alimento', qty: 'Quantità', meal: 'Pasto', kcalUnit: 'Calorie (kcal)',
+  grams: 'Grammi', per100: 'per 100 g', searchOnline: 'Cerca online', searching: 'Ricerca in corso…',
+  noOnlineRes: 'Nessun risultato online', onlineErr: 'Ricerca online non riuscita',
+  foodDbAdded: '"{0}" aggiunto al database alimenti', autoCalc: 'Valori calcolati dai grammi — modificabili',
   delFoodConfirm: 'Eliminare questo alimento?', foodDeleted: 'Alimento eliminato',
   foodAdded: 'Alimento aggiunto', foodUpdated: 'Alimento aggiornato',
   // Progressi
   progSub: 'Analisi storica e confronti', week: 'Settimana', month: 'Mese', year: 'Anno', all: 'Tutto',
   inPeriod: 'Nel periodo', sessions: 'Sessioni', hoursTotal: 'ore totali', lifted: 'Peso sollevato',
   girth: 'Circonferenza', selPeriod: 'Nel periodo selezionato', keyGirths: 'Circonferenze chiave',
-  girthsSub: 'Vita, petto, braccio dx', dailyIntake: 'Assunzione giornaliera', loadTrend: 'Andamento del carico',
+  girthsSub: 'Vita, petto, braccio', dailyIntake: 'Assunzione giornaliera', loadTrend: 'Andamento del carico',
   pctImprove: 'Miglioramenti percentuali', firstToLast: "Dal primo all'ultimo rilevamento del periodo",
   measureCol: 'Misura', valuesCol: 'Valori', insufficient: 'Dati insufficienti nel periodo selezionato.',
   // Confronto
