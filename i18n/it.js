@@ -122,6 +122,11 @@ window.FWS_I18N.it = {
   girthsSub: 'Vita, petto, braccio', dailyIntake: 'Assunzione giornaliera', loadTrend: 'Andamento del carico',
   pctImprove: 'Miglioramenti percentuali', firstToLast: "Dal primo all'ultimo rilevamento del periodo",
   measureCol: 'Misura', valuesCol: 'Valori', insufficient: 'Dati insufficienti nel periodo selezionato.',
+  // Condivisione
+  shareTitle: 'Condividi', share: 'Condividi', copy: 'Copia', copied: 'Copiato negli appunti',
+  send: 'Invia', shareDay: 'Condividi giornata', copyErr: 'Copia non riuscita',
+  totalLbl: 'Totale', waterLbl: 'Acqua', volumeLbl: 'Volume', restShort: 'rec',
+  dayLbl: 'Giorno', weekOf: 'Settimana', nothingToShare: 'Niente da condividere in questo periodo',
   // Confronto
   cmpTitle: 'Confronto tra due date', from: 'Da', to: 'A', need2: 'Servono almeno due misurazioni',
   // Notifiche / ricerca

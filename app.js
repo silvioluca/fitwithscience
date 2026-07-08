@@ -103,6 +103,7 @@ const ICONS = {
   gauge: '<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M12 3v3"/><path d="m17 6.3-2 2"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>',
 };
 
 const ic = (name, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -571,7 +572,7 @@ const Stats = {
 /* =====================================================================
    GENERIC TABLE — ordinamento, ricerca, paginazione, export CSV
    ===================================================================== */
-function renderTable({ mountId, columns, rows, pageSize = 8, csvName, onEdit, onDelete, emptyMsg }) {
+function renderTable({ mountId, columns, rows, pageSize = 8, csvName, onEdit, onDelete, onShare, emptyMsg }) {
   const mount = $('#' + mountId);
   if (!mount) return;
   let state = { sortKey: columns[0].key, sortDir: -1, page: 1, q: '' };
@@ -598,11 +599,12 @@ function renderTable({ mountId, columns, rows, pageSize = 8, csvName, onEdit, on
 
     const thead = columns.map(c =>
       `<th data-k="${c.key}">${esc(c.label)}${state.sortKey === c.key ? `<span class="sort-arrow">${state.sortDir > 0 ? '▲' : '▼'}</span>` : ''}</th>`
-    ).join('') + (onEdit || onDelete ? '<th></th>' : '');
+    ).join('') + (onEdit || onDelete || onShare ? '<th></th>' : '');
 
     const tbody = slice.length ? slice.map(row => `<tr>
       ${columns.map(c => `<td>${c.render ? c.render(row) : esc(row[c.key])}</td>`).join('')}
-      ${onEdit || onDelete ? `<td><div class="td-actions">
+      ${onEdit || onDelete || onShare ? `<td><div class="td-actions">
+        ${onShare ? `<button class="btn-icon" data-share="${row.id}" title="${t('share')}">${ic('share')}</button>` : ''}
         ${onEdit ? `<button class="btn-icon" data-edit="${row.id}" title="${t('edit')}">${ic('pencil')}</button>` : ''}
         ${onDelete ? `<button class="btn-icon danger" data-del="${row.id}" title="${t('del')}">${ic('trash')}</button>` : ''}
       </div></td>` : ''}
@@ -624,6 +626,7 @@ function renderTable({ mountId, columns, rows, pageSize = 8, csvName, onEdit, on
     $$('[data-pg]', mount).forEach(b => b.onclick = () => { state.page = Number(b.dataset.pg); draw(); });
     if (onEdit) $$('[data-edit]', mount).forEach(b => b.onclick = () => onEdit(b.dataset.edit));
     if (onDelete) $$('[data-del]', mount).forEach(b => b.onclick = () => onDelete(b.dataset.del));
+    if (onShare) $$('[data-share]', mount).forEach(b => b.onclick = () => onShare(b.dataset.share));
   }
 
   draw();
@@ -981,6 +984,7 @@ const Pages = {
         { key: 'volume', label: t('volumeKg'), render: r => r.volume.toLocaleString(locale()) },
         { key: 'duration', label: t('durationMin') },
       ],
+      onShare: id => shareDialog(workoutShareText(Store.data.workouts.find(x => x.id === id))),
       onEdit: id => workoutForm(Store.data.workouts.find(x => x.id === id)),
       onDelete: id => confirmDialog(t('delWorkConfirm'), () => {
         Store.data.workouts = Store.data.workouts.filter(x => x.id !== id);
@@ -1053,6 +1057,7 @@ const Pages = {
         <div class="page-title"><h1>${t('navFood')}</h1><p>${t('foodSub')}</p></div>
         <div class="actions">
           <div class="field" style="margin:0"><input type="date" id="foodDate" value="${date}" max="${todayISO()}" style="height:40px"></div>
+          <button class="btn" id="foodShare">${ic('share')} ${t('shareDay')}</button>
         </div>
       </div>
 
@@ -1087,6 +1092,7 @@ const Pages = {
 
   alimentazioneMount() {
     $('#foodDate').onchange = e => { State.foodDate = e.target.value; Router.render(); };
+    $('#foodShare').onclick = () => sharePeriodDialog(State.foodDate, true);
     $$('[data-addfood]').forEach(b => b.onclick = () => foodForm(null, b.dataset.addfood));
     $$('[data-editfood]').forEach(b => b.onclick = () => foodForm(Store.data.meals.find(m => m.id === b.dataset.editfood)));
     $$('[data-delfood]').forEach(b => b.onclick = () => confirmDialog(t('delFoodConfirm'), () => {
@@ -1724,6 +1730,124 @@ function foodForm(existing = null, mealKey = 'Colazione') {
   });
 }
 
+/* =====================================================================
+   CONDIVISIONE — testo formattato con Copia / WhatsApp / share nativa
+   ===================================================================== */
+function workoutShareText(w) {
+  const vol = Math.round(Stats.workoutVolume(w));
+  const lines = [
+    `${w.name} — ${fmtDate(w.date)}`,
+    `${w.group} · ${w.duration} min · ${t('volumeLbl')}: ${vol.toLocaleString(locale())} kg`,
+    '',
+  ];
+  w.exercises.forEach(e => {
+    const load = e.weight ? ` @ ${e.weight} kg` : '';
+    const val = e.mode === 'time' ? `${e.sets}×${e.reps}s` : `${e.sets}×${e.reps}`;
+    lines.push(`- ${e.name} [${e.group}]: ${val}${load} (${t('restShort')} ${e.rest}s, RPE ${e.rpe})`);
+  });
+  return lines.join('\n');
+}
+
+function foodDayShareText(date) {
+  const meals = Stats.mealsFor(date);
+  const mac = Stats.dayMacros(date);
+  const water = Store.data.water[date] || 0;
+  const lines = [`${t('navFood')} — ${fmtDate(date)}`, ''];
+  MEAL_KEYS.forEach(mk => {
+    const foods = meals.filter(m => m.meal === mk);
+    if (!foods.length) return;
+    const kcal = Math.round(foods.reduce((tt, f) => tt + f.kcal, 0));
+    lines.push(`${mealLabel(mk)} (${kcal} kcal)`);
+    foods.forEach(f => lines.push(`- ${f.name} ${f.qty}: ${Math.round(f.kcal)} kcal (P ${round1(f.protein)}g · C ${round1(f.carbs)}g · G ${round1(f.fat)}g)`));
+    lines.push('');
+  });
+  lines.push(`${t('totalLbl')}: ${Math.round(mac.kcal)} kcal · P ${Math.round(mac.protein)}g · C ${Math.round(mac.carbs)}g · G ${Math.round(mac.fat)}g`);
+  if (water) lines.push(`${t('waterLbl')}: ${water} ${t('glasses')} (${round1(water * 0.25)} L)`);
+  return lines.join('\n');
+}
+
+/* Data locale → ISO senza shift di fuso */
+const isoOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/* I 7 giorni (lun→dom) della settimana contenente la data */
+function weekDays(iso) {
+  const d = new Date(iso + 'T00:00');
+  const start = new Date(d);
+  start.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return [...Array(7)].map((_, i) => { const x = new Date(start); x.setDate(start.getDate() + i); return isoOf(x); });
+}
+
+const SHARE_DIV = '\n\n----------\n\n';
+
+/* Testo combinato del giorno (allenamenti + diario); foodOnly per la pagina Alimentazione */
+function dayShareText(iso, foodOnly = false) {
+  const parts = [];
+  if (!foodOnly) Store.data.workouts.filter(w => w.date === iso).forEach(w => parts.push(workoutShareText(w)));
+  if (Stats.mealsFor(iso).length) parts.push(foodDayShareText(iso));
+  return parts.join(SHARE_DIV);
+}
+
+function weekShareText(iso, foodOnly = false) {
+  const days = weekDays(iso);
+  const parts = days.map(d => dayShareText(d, foodOnly)).filter(Boolean);
+  if (!parts.length) return '';
+  return `${t('weekOf')} ${fmtDateShort(days[0])} – ${fmtDate(days[6])}${SHARE_DIV}${parts.join(SHARE_DIV)}`;
+}
+
+/* Modale di condivisione con testo fisso (es. singolo workout) */
+function shareDialog(text) {
+  sharePeriodDialog(null, false, text);
+}
+
+/* Modale con scelta Giorno/Settimana; fixedText la rende statica */
+function sharePeriodDialog(iso, foodOnly = false, fixedText = null) {
+  let scope = 'day';
+  const build = () => fixedText ?? (scope === 'day' ? dayShareText(iso, foodOnly) : weekShareText(iso, foodOnly));
+  const canNative = !!navigator.share;
+
+  Modal.open({
+    title: t('shareTitle'),
+    body: `
+      ${fixedText ? '' : `<div class="chip-row" style="margin-bottom:12px">
+        <button class="chip active" data-scope="day">${t('dayLbl')}</button>
+        <button class="chip" data-scope="week">${t('weekOf')}</button>
+      </div>`}
+      <div class="share-pre" id="shPre"></div>`,
+    footer: `
+      <button class="btn" id="shCopy">${ic('copy')} ${t('copy')}</button>
+      <button class="btn" id="shWa">WhatsApp</button>
+      ${canNative ? `<button class="btn btn-primary" id="shNative">${ic('share')} ${t('send')}</button>` : ''}`,
+    onMount(root) {
+      const pre = $('#shPre', root);
+      const redraw = () => { const tx = build(); pre.textContent = tx || t('nothingToShare'); };
+      redraw();
+
+      $$('[data-scope]', root).forEach(c => c.onclick = () => {
+        scope = c.dataset.scope;
+        $$('[data-scope]', root).forEach(x => x.classList.toggle('active', x === c));
+        redraw();
+      });
+
+      $('#shCopy', root).onclick = async () => {
+        const text = build();
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          Toast.show(t('copied'), 'info');
+        } catch {
+          const ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); Toast.show(t('copied'), 'info'); }
+          catch { Toast.show(t('copyErr'), 'error'); }
+          ta.remove();
+        }
+      };
+      $('#shWa', root).onclick = () => { const text = build(); if (text) window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank'); };
+      if (canNative) $('#shNative', root).onclick = () => { const text = build(); if (text) navigator.share({ title: 'Fit with Science', text }).catch(() => {}); };
+    },
+  });
+}
+
 /* Sposta 'YYYY-MM' di n mesi */
 function shiftMonth(ym, n) {
   const [y, m] = ym.split('-').map(Number);
@@ -1759,6 +1883,12 @@ function calendarDayDialog(iso) {
       <div style="font-weight:700;font-size:13px;margin:16px 0 8px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.04em">${t('navFood')}
         ${meals.length ? `<span class="badge badge-blue" style="margin-left:6px">${Math.round(mac.kcal)} kcal · P ${Math.round(mac.protein)}g</span>` : ''}</div>
       ${mealHTML}`,
+    footer: (works.length || meals.length) ? `<button class="btn btn-primary" id="cdShare">${ic('share')} ${t('share')}</button>` : null,
+    onMount(root) {
+      const btn = $('#cdShare', root);
+      if (!btn) return;
+      btn.onclick = () => sharePeriodDialog(iso, false); // toggle Giorno/Settimana
+    },
   });
 }
 

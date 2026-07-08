@@ -967,6 +967,21 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .cmp-label { color: var(--text-soft); }
 .cmp-delta { font-weight: 700; text-align: right; }
 
+/* Condivisione */
+.share-pre {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow-y: auto;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
 /* Autocomplete alimenti */
 .fs-wrap { position: relative; }
 .fs-list {

@@ -122,6 +122,11 @@ window.FWS_I18N.en = {
   girthsSub: 'Waist, chest, arm', dailyIntake: 'Daily intake', loadTrend: 'Load trend',
   pctImprove: 'Percentage improvements', firstToLast: 'From first to last record in the period',
   measureCol: 'Measure', valuesCol: 'Values', insufficient: 'Not enough data in the selected period.',
+  // Sharing
+  shareTitle: 'Share', share: 'Share', copy: 'Copy', copied: 'Copied to clipboard',
+  send: 'Send', shareDay: 'Share day', copyErr: 'Copy failed',
+  totalLbl: 'Total', waterLbl: 'Water', volumeLbl: 'Volume', restShort: 'rest',
+  dayLbl: 'Day', weekOf: 'Week', nothingToShare: 'Nothing to share in this period',
   // Compare
   cmpTitle: 'Compare two dates', from: 'From', to: 'To', need2: 'At least two measurements required',
   // Notifications / search
