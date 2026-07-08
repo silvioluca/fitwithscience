@@ -29,6 +29,8 @@ window.FWS_I18N.it = {
   aGoogleNc: 'Accesso Google non configurato:<br>imposta GOOGLE_CLIENT_ID in app.js',
   aEmailReq: 'Email obbligatoria', aPwReq: 'Password obbligatoria (min 6 caratteri)', aPwMismatch: 'Le password non coincidono',
   errEmailTaken: 'Email già registrata', errBadCreds: 'Credenziali non valide', errGoogle: 'Accesso Google non riuscito',
+  gContinue: 'Continua con Google', cloudOn: 'Sync cloud attiva: dati disponibili su tutti i dispositivi',
+  cloudErr: 'Sincronizzazione cloud non riuscita', errWeakPw: 'Password troppo debole (min 6 caratteri)',
   // Onboarding
   obTitle: 'Benvenuto! Completa il tuo profilo',
   obIntro: 'Questi dati inizializzano il tuo profilo e la prima misurazione. Potrai modificarli in seguito.',

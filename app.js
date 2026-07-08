@@ -17,7 +17,48 @@ const GOOGLE_CLIENT_ID = '99699687508-64rr056nisltqktkaqp1ur0ipfspp1ie.apps.goog
    Application Type: "Client", Redirect URL: l'URL esatto del sito,
    es. https://<utente>.github.io/fitwithscience/ ).
    PKCE: nessun client secret necessario, funziona da sito statico. */
-const FITBIT_CLIENT_ID = 'YOUR_FITBIT_CLIENT_ID'; 
+const FITBIT_CLIENT_ID = 'YOUR_FITBIT_CLIENT_ID';
+
+/* Config Firebase per la sync multi-dispositivo (console.firebase.google.com
+   → Project settings → Your apps → Web app → firebaseConfig).
+   Con il placeholder l'app resta in modalità solo-locale (localStorage). */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyD2eLT8MTiyHJU_mG_PSUYIkGOGjhXvhNk",
+  authDomain: "fit-with-science-b582d.firebaseapp.com",
+  projectId: "fit-with-science-b582d",
+};
+
+/* =====================================================================
+   CLOUD — Firebase Auth + Firestore (documento unico users/<uid>)
+   ===================================================================== */
+const Cloud = {
+  enabled: false,
+  uid: null,
+  saveTimer: null,
+
+  init() {
+    if (FIREBASE_CONFIG.apiKey.startsWith('YOUR') || !window.firebase) return false;
+    firebase.initializeApp(FIREBASE_CONFIG);
+    this.enabled = true;
+    return true;
+  },
+
+  async load(uid) {
+    const snap = await firebase.firestore().collection('users').doc(uid).get();
+    return snap.exists ? snap.data() : null;
+  },
+
+  /* Scrittura debounced: localStorage resta immediato, il cloud segue */
+  scheduleSave() {
+    if (!this.enabled || !this.uid) return;
+    clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => {
+      firebase.firestore().collection('users').doc(this.uid)
+        .set(JSON.parse(JSON.stringify(Store.data)))
+        .catch(() => Toast.show(t('cloudErr'), 'error'));
+    }, 1500);
+  },
+};
 
 /* =====================================================================
    I18N — dizionari italiano / inglese
@@ -192,7 +233,9 @@ const Auth = {
   logout() {
     localStorage.removeItem(this.SESS_KEY);
     location.hash = '';
-    location.reload();
+    if (Cloud.enabled && firebase.auth().currentUser) {
+      firebase.auth().signOut().finally(() => location.reload());
+    } else location.reload();
   },
 };
 
@@ -233,7 +276,10 @@ const Store = {
     if (!this.data.foodPrefs || typeof this.data.foodPrefs !== 'object') this.data.foodPrefs = {};
   },
 
-  save() { localStorage.setItem(this.key, JSON.stringify(this.data)); },
+  save() {
+    localStorage.setItem(this.key, JSON.stringify(this.data));
+    Cloud.scheduleSave(); // no-op se il cloud non è configurato/attivo
+  },
 
   blank() {
     return {
@@ -2122,7 +2168,7 @@ function importGoogleFitFile(file) {
 const Fitbit = {
   API: 'https://api.fitbit.com',
 
-  storeKey() { return 'fws-fitbit-' + (Auth.current()?.id || 'anon'); },
+  storeKey() { return 'fws-fitbit-' + (CURRENT_USER?.id || Auth.current()?.id || 'anon'); },
   tokens() { try { return JSON.parse(localStorage.getItem(this.storeKey())); } catch { return null; } },
   saveTokens(tk) { localStorage.setItem(this.storeKey(), JSON.stringify(tk)); },
   clearTokens() { localStorage.removeItem(this.storeKey()); },
@@ -2400,10 +2446,11 @@ function onboardingForm(user) {
           rec[f.key] = v === '' ? null : Number(v);
         });
         Store.data.measurements.push(rec);
+        Store.data.onboarded = true; // vive nei dati → si sincronizza col cloud
         Store.save();
 
         user.onboarded = true;
-        Auth.updateUser(user);
+        if (!user.cloud) Auth.updateUser(user); // gli account cloud non stanno in fws-users
 
         Modal.close();
         applyUserToUI(user);
@@ -2464,6 +2511,14 @@ function renderAuthScreen() {
       const pw2 = $('#authPw2', scr).value;
       if (pw !== pw2) { $('#authPw2', scr).classList.add('invalid'); return; }
     }
+    if (Cloud.enabled) {
+      // Firebase Auth: onAuthStateChanged farà partire l'app
+      try {
+        if (mode === 'register') await firebase.auth().createUserWithEmailAndPassword(email, pw);
+        else await firebase.auth().signInWithEmailAndPassword(email, pw);
+      } catch (err) { Toast.show(fbErrMsg(err), 'error'); }
+      return;
+    }
     try {
       const user = mode === 'register' ? await Auth.register(email, pw) : await Auth.login(email, pw);
       startApp(user);
@@ -2479,6 +2534,17 @@ function renderAuthScreen() {
 
 function initGoogleSignIn() {
   const mount = $('#gsiBtn');
+
+  // Modalità cloud: popup Firebase al posto del bottone GIS
+  if (Cloud.enabled) {
+    mount.innerHTML = `<button class="btn" style="width:320px;max-width:100%;justify-content:center" id="fbGoogleBtn">${ic('user')} ${t('gContinue')}</button>`;
+    $('#fbGoogleBtn', mount).onclick = async () => {
+      try { await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+      catch (err) { if (err?.code !== 'auth/popup-closed-by-user') Toast.show(fbErrMsg(err), 'error'); }
+    };
+    return;
+  }
+
   const tryInit = () => {
     if (GOOGLE_CLIENT_ID.startsWith('YOUR')) {
       mount.innerHTML = `<span style="font-size:12px;color:var(--text-faint);text-align:center">${t('aGoogleNc')}</span>`;
@@ -2664,7 +2730,10 @@ const Router = {
   },
 };
 
+let CURRENT_USER = null;
+
 function startApp(user) {
+  CURRENT_USER = user;
   Store.init(user);
   // Account Google senza foto caricata → usa l'immagine di profilo Google
   if (user.provider === 'google' && !Store.data.profile.avatar && user.prefill?.avatar) {
@@ -2682,21 +2751,74 @@ function startApp(user) {
   if (PAGE_NAMES.includes(h)) State.page = h;
   Router.render();
 
-  if (!user.onboarded) onboardingForm(user);
+  if (!user.onboarded && !Store.data.onboarded) onboardingForm(user);
 
-  Fitbit.autoSync(); // sync silenziosa (max 1/giorno) se connesso
+  // Fitbit: ritorno dal flusso OAuth (?code=...) oppure auto-sync giornaliera
+  if (location.search.includes('code=')) {
+    Fitbit.handleRedirect().then(ok => { if (ok) Fitbit.sync(true); });
+  } else {
+    Fitbit.autoSync();
+  }
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+/* Avvio in modalità cloud: dati Firestore = fonte di verità */
+async function cloudStart(fbU) {
+  Cloud.uid = fbU.uid;
+  const nameParts = (fbU.displayName || '').split(' ');
+  const user = {
+    id: fbU.uid, email: fbU.email || '', cloud: true,
+    provider: fbU.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'local',
+    onboarded: false,
+    prefill: { firstName: nameParts[0] || '', lastName: nameParts.slice(1).join(' '), avatar: fbU.photoURL || null },
+  };
+
+  let cloudData = null;
+  try { cloudData = await Cloud.load(fbU.uid); }
+  catch { Toast.show(t('cloudErr'), 'error'); }
+
+  Store.init(user); // cache locale o blank
+  if (cloudData && cloudData.profile) {
+    Store.data = cloudData; // il cloud vince: è lo storico condiviso tra dispositivi
+    Store.migrate();
+    localStorage.setItem(Store.key, JSON.stringify(Store.data));
+  } else {
+    Cloud.scheduleSave(); // primo dispositivo: spinge i dati locali sul cloud
+  }
+
+  startApp(user);
+}
+
+/* Mappa gli errori Firebase Auth su messaggi tradotti */
+function fbErrMsg(e) {
+  const c = e?.code || '';
+  if (c.includes('email-already')) return t('errEmailTaken');
+  if (c.includes('weak-password')) return t('errWeakPw');
+  if (c.includes('wrong-password') || c.includes('user-not-found') || c.includes('invalid-credential') || c.includes('invalid-login')) return t('errBadCreds');
+  return t('errGoogle');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
   Lang.set(Lang.lang); // imposta <html lang>
   hydrateIcons();
   initTheme();
   initNav();
 
-  const user = Auth.current();
-  if (user) {
-    // Ritorno dal flusso OAuth Fitbit (?code=...) → scambio token prima del render
-    if (location.search.includes('code=')) await Fitbit.handleRedirect();
-    startApp(user);
-  } else renderAuthScreen();
+  if (Cloud.init()) {
+    // Modalità cloud: lo stato di login lo decide Firebase
+    let first = true;
+    firebase.auth().onAuthStateChanged(fbU => {
+      if (fbU) { cloudStart(fbU); }
+      else if (first) {
+        const local = Auth.current();
+        if (local && local.id === 'demo') startApp(local); // la demo resta locale
+        else renderAuthScreen();
+      }
+      first = false;
+    });
+  } else {
+    // Modalità solo-locale (Firebase non configurato)
+    const user = Auth.current();
+    if (user) startApp(user);
+    else renderAuthScreen();
+  }
 });

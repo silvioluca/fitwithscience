@@ -29,6 +29,8 @@ window.FWS_I18N.en = {
   aGoogleNc: 'Google sign-in not configured:<br>set GOOGLE_CLIENT_ID in app.js',
   aEmailReq: 'Email required', aPwReq: 'Password required (min 6 characters)', aPwMismatch: 'Passwords do not match',
   errEmailTaken: 'Email already registered', errBadCreds: 'Invalid credentials', errGoogle: 'Google sign-in failed',
+  gContinue: 'Continue with Google', cloudOn: 'Cloud sync active: data available on all your devices',
+  cloudErr: 'Cloud sync failed', errWeakPw: 'Password too weak (min 6 characters)',
   // Onboarding
   obTitle: 'Welcome! Complete your profile',
   obIntro: 'These details initialize your profile and first measurement. You can edit them later.',
