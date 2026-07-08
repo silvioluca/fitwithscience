@@ -15,7 +15,7 @@ window.FWS_FOODS = [
   { name: 'Farro', kcal: 340, protein: 15.1, carbs: 67.1, fat: 2.5 },
   { name: 'Quinoa', kcal: 368, protein: 14.1, carbs: 64.2, fat: 6.1 },
   { name: 'Couscous', kcal: 376, protein: 12.8, carbs: 77.4, fat: 0.6 },
-  { name: 'Gallette di riso', kcal: 387, protein: 8.1, carbs: 81.5, fat: 2.8 },
+  { name: 'Gallette di riso', kcal: 387, protein: 8.1, carbs: 81.5, fat: 2.8, unitG: 8 },
   { name: 'Patate', kcal: 77, protein: 2.0, carbs: 17.5, fat: 0.1 },
   { name: 'Patate dolci', kcal: 86, protein: 1.6, carbs: 20.1, fat: 0.1 },
 
@@ -39,8 +39,8 @@ window.FWS_FOODS = [
   { name: 'Sgombro', kcal: 205, protein: 18.6, carbs: 0, fat: 13.9 },
 
   // ---- Uova e latticini ----
-  { name: 'Uovo intero', kcal: 143, protein: 12.6, carbs: 0.7, fat: 9.5 },
-  { name: 'Albume', kcal: 52, protein: 10.9, carbs: 0.7, fat: 0.2 },
+  { name: 'Uovo intero', kcal: 143, protein: 12.6, carbs: 0.7, fat: 9.5, unitG: 60 },
+  { name: 'Albume', kcal: 52, protein: 10.9, carbs: 0.7, fat: 0.2, unitG: 33 },
   { name: 'Latte parz. scremato', kcal: 46, protein: 3.4, carbs: 4.8, fat: 1.5 },
   { name: 'Latte intero', kcal: 62, protein: 3.2, carbs: 4.7, fat: 3.6 },
   { name: 'Yogurt greco 0%', kcal: 57, protein: 10.2, carbs: 3.5, fat: 0.2 },
@@ -74,26 +74,36 @@ window.FWS_FOODS = [
   { name: 'Funghi champignon', kcal: 22, protein: 3.1, carbs: 3.3, fat: 0.3 },
 
   // ---- Frutta ----
-  { name: 'Banana', kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 },
-  { name: 'Mela', kcal: 52, protein: 0.3, carbs: 13.8, fat: 0.2 },
-  { name: 'Arancia', kcal: 47, protein: 0.9, carbs: 11.8, fat: 0.1 },
-  { name: 'Kiwi', kcal: 61, protein: 1.1, carbs: 14.7, fat: 0.5 },
+  { name: 'Banana', kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3, unitG: 120 },
+  { name: 'Mela', kcal: 52, protein: 0.3, carbs: 13.8, fat: 0.2, unitG: 180 },
+  { name: 'Arancia', kcal: 47, protein: 0.9, carbs: 11.8, fat: 0.1, unitG: 150 },
+  { name: 'Kiwi', kcal: 61, protein: 1.1, carbs: 14.7, fat: 0.5, unitG: 90 },
   { name: 'Fragole', kcal: 32, protein: 0.7, carbs: 7.7, fat: 0.3 },
   { name: 'Mirtilli', kcal: 57, protein: 0.7, carbs: 14.5, fat: 0.3 },
   { name: 'Uva', kcal: 69, protein: 0.7, carbs: 18.1, fat: 0.2 },
-  { name: 'Pera', kcal: 57, protein: 0.4, carbs: 15.2, fat: 0.1 },
-  { name: 'Pesca', kcal: 39, protein: 0.9, carbs: 9.5, fat: 0.3 },
+  { name: 'Pera', kcal: 57, protein: 0.4, carbs: 15.2, fat: 0.1, unitG: 160 },
+  { name: 'Pesca', kcal: 39, protein: 0.9, carbs: 9.5, fat: 0.3, unitG: 150 },
   { name: 'Anguria', kcal: 30, protein: 0.6, carbs: 7.6, fat: 0.2 },
   { name: 'Avocado', kcal: 160, protein: 2.0, carbs: 8.5, fat: 14.7 },
 
   // ---- Frutta secca e semi ----
-  { name: 'Mandorle', kcal: 579, protein: 21.2, carbs: 21.6, fat: 49.9 },
-  { name: 'Noci', kcal: 654, protein: 15.2, carbs: 13.7, fat: 65.2 },
-  { name: 'Anacardi', kcal: 553, protein: 18.2, carbs: 30.2, fat: 43.9 },
-  { name: 'Arachidi', kcal: 567, protein: 25.8, carbs: 16.1, fat: 49.2 },
+  { name: 'Mandorle', kcal: 579, protein: 21.2, carbs: 21.6, fat: 49.9, unitG: 1.2 },
+  { name: 'Noci', kcal: 654, protein: 15.2, carbs: 13.7, fat: 65.2, unitG: 4.5 },
+  { name: 'Anacardi', kcal: 553, protein: 18.2, carbs: 30.2, fat: 43.9, unitG: 1.5 },
+  { name: 'Arachidi', kcal: 567, protein: 25.8, carbs: 16.1, fat: 49.2, unitG: 1 },
   { name: 'Burro di arachidi', kcal: 588, protein: 25.1, carbs: 20.0, fat: 50.4 },
   { name: 'Semi di chia', kcal: 486, protein: 16.5, carbs: 42.1, fat: 30.7 },
-  { name: 'Pistacchi', kcal: 560, protein: 20.2, carbs: 27.2, fat: 45.3 },
+  { name: 'Pistacchi', kcal: 560, protein: 20.2, carbs: 27.2, fat: 45.3, unitG: 0.7 },
+
+  // ---- Biscotti e snack (numerabili) ----
+  { name: 'Biscotti secchi', kcal: 416, protein: 8.0, carbs: 80.0, fat: 7.5, unitG: 7 },
+  { name: 'Biscotti frollini', kcal: 480, protein: 6.5, carbs: 72.0, fat: 19.0, unitG: 10 },
+  { name: 'Biscotti integrali', kcal: 450, protein: 8.0, carbs: 66.0, fat: 16.0, unitG: 9 },
+  { name: 'Fette biscottate', kcal: 408, protein: 11.0, carbs: 76.0, fat: 6.0, unitG: 8 },
+  { name: 'Fette biscottate integrali', kcal: 390, protein: 13.0, carbs: 70.0, fat: 5.5, unitG: 8 },
+  { name: 'Crackers', kcal: 428, protein: 9.5, carbs: 70.0, fat: 11.5, unitG: 5 },
+  { name: 'Grissini', kcal: 433, protein: 12.0, carbs: 68.0, fat: 12.0, unitG: 4 },
+  { name: 'Taralli', kcal: 440, protein: 9.0, carbs: 62.0, fat: 17.0, unitG: 10 },
 
   // ---- Condimenti e grassi ----
   { name: 'Olio extravergine di oliva', kcal: 884, protein: 0, carbs: 0, fat: 100 },
@@ -101,7 +111,7 @@ window.FWS_FOODS = [
   { name: 'Miele', kcal: 304, protein: 0.3, carbs: 82.4, fat: 0 },
   { name: 'Zucchero', kcal: 387, protein: 0, carbs: 100, fat: 0 },
   { name: 'Marmellata', kcal: 278, protein: 0.4, carbs: 69.0, fat: 0.1 },
-  { name: 'Cioccolato fondente 85%', kcal: 592, protein: 9.7, carbs: 22.7, fat: 52.4 },
+  { name: 'Cioccolato fondente 85%', kcal: 592, protein: 9.7, carbs: 22.7, fat: 52.4, unitG: 10 },
 
   // ---- Piatti compositi (valori medi per 100 g di piatto pronto) ----
   { name: 'Pasta al pomodoro', kcal: 145, protein: 5.0, carbs: 26.0, fat: 2.5 },
@@ -129,7 +139,7 @@ window.FWS_FOODS = [
   { name: 'Proteine whey (polvere)', kcal: 400, protein: 80.0, carbs: 8.0, fat: 6.0 },
   { name: 'Crema di riso', kcal: 360, protein: 6.5, carbs: 80.0, fat: 0.9 },
   { name: 'Maltodestrine', kcal: 380, protein: 0, carbs: 95.0, fat: 0 },
-  { name: 'Tortillas integrali', kcal: 306, protein: 8.5, carbs: 49.0, fat: 8.0 },
+  { name: 'Tortillas integrali', kcal: 306, protein: 8.5, carbs: 49.0, fat: 8.0, unitG: 40 },
   { name: 'Salmone affumicato', kcal: 147, protein: 22.0, carbs: 0.5, fat: 6.5 },
   { name: 'Hummus', kcal: 166, protein: 7.9, carbs: 14.3, fat: 9.6 },
 ];

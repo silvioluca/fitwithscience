@@ -111,6 +111,7 @@ window.FWS_I18N.it = {
   noFood: 'Nessun alimento registrato.', addTo: 'Aggiungi a {0}', editFood: 'Modifica alimento',
   foodName: 'Nome alimento', qty: 'Quantità', meal: 'Pasto', kcalUnit: 'Calorie (kcal)',
   grams: 'Grammi', per100: 'per 100 g', searchOnline: 'Cerca online', searching: 'Ricerca in corso…',
+  pieces: 'Numero (pz)', pieceApprox: '1 pz ≈ {0} g',
   noOnlineRes: 'Nessun risultato online', onlineErr: 'Ricerca online non riuscita',
   foodDbAdded: '"{0}" aggiunto al database alimenti', autoCalc: 'Valori calcolati dai grammi — modificabili',
   delFoodConfirm: 'Eliminare questo alimento?', foodDeleted: 'Alimento eliminato',

@@ -111,6 +111,7 @@ window.FWS_I18N.en = {
   noFood: 'No food logged.', addTo: 'Add to {0}', editFood: 'Edit food',
   foodName: 'Food name', qty: 'Quantity', meal: 'Meal', kcalUnit: 'Calories (kcal)',
   grams: 'Grams', per100: 'per 100 g', searchOnline: 'Search online', searching: 'Searching…',
+  pieces: 'Count (pcs)', pieceApprox: '1 pc ≈ {0} g',
   noOnlineRes: 'No online results', onlineErr: 'Online search failed',
   foodDbAdded: '"{0}" added to the food database', autoCalc: 'Values computed from grams — editable',
   delFoodConfirm: 'Delete this food?', foodDeleted: 'Food deleted',

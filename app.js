@@ -230,6 +230,7 @@ const Store = {
     });
     if (!Array.isArray(this.data.customFoods)) this.data.customFoods = [];
     if (!Array.isArray(this.data.customExercises)) this.data.customExercises = [];
+    if (!this.data.foodPrefs || typeof this.data.foodPrefs !== 'object') this.data.foodPrefs = {};
   },
 
   save() { localStorage.setItem(this.key, JSON.stringify(this.data)); },
@@ -238,7 +239,7 @@ const Store = {
     return {
       profile: { firstName: '', lastName: '', age: null, height: null, sex: 'na', goal: 'recomp', bio: '', avatar: null },
       goals: { kcal: 2400, protein: 170, carbs: 260, fat: 75, waterGlasses: 8, weeklyWorkouts: 4 },
-      measurements: [], workouts: [], templates: [], meals: [], water: {}, customFoods: [], customExercises: [],
+      measurements: [], workouts: [], templates: [], meals: [], water: {}, customFoods: [], customExercises: [], foodPrefs: {},
     };
   },
 
@@ -1591,7 +1592,9 @@ async function searchOpenFoodFacts(query) {
 
 function foodForm(existing = null, mealKey = 'Colazione') {
   const f = existing || { name: '', qty: '', kcal: '', protein: '', carbs: '', fat: '' };
-  const gramsInit = existing ? (parseFloat(existing.qty) || '') : '';
+  // qty può essere "80 g" oppure "10 pz (12 g)" → i grammi sono tra parentesi
+  const parseGrams = q => { const m = /\((\d+(?:[.,]\d+)?)\s*g\)/.exec(q || ''); return m ? parseFloat(m[1].replace(',', '.')) : (parseFloat(q) || ''); };
+  const gramsInit = existing ? parseGrams(existing.qty) : '';
   let per100 = existing ? findFood(existing.name) : null; // alimento selezionato dal DB
 
   Modal.open({
@@ -1601,6 +1604,7 @@ function foodForm(existing = null, mealKey = 'Colazione') {
         <input id="ffName" data-req value="${esc(f.name)}" placeholder="${t('phFood')}" autocomplete="off">
         <div class="fs-list" id="ffList"></div>
         <div class="err-msg">${t('required')}</div></div>
+      <div class="field" id="ffCountField" style="display:none"><label>${t('pieces')}</label><input type="number" min="0" step="0.5" id="ffCount" placeholder="1"></div>
       <div class="field"><label>${t('grams')}</label><input type="number" min="0" id="ffGrams" value="${gramsInit}" placeholder="100"></div>
       <div class="field"><label>${t('meal')}</label>
         <select id="ffMeal">${MEAL_KEYS.map(m => `<option value="${m}" ${(existing?.meal || mealKey) === m ? 'selected' : ''}>${mealLabel(m)}</option>`).join('')}</select></div>
@@ -1613,6 +1617,7 @@ function foodForm(existing = null, mealKey = 'Colazione') {
     footer: `<button class="btn" onclick="Modal.close()">${t('cancel')}</button><button class="btn btn-primary" id="ffSave">${t('save')}</button>`,
     onMount(root) {
       const nameInp = $('#ffName', root), gramsInp = $('#ffGrams', root), list = $('#ffList', root);
+      const countField = $('#ffCountField', root), countInp = $('#ffCount', root);
 
       // grammi + alimento selezionato → macro calcolate (per 100 g)
       const recalc = () => {
@@ -1624,13 +1629,29 @@ function foodForm(existing = null, mealKey = 'Colazione') {
         $('#ffF', root).value = round1(per100.fat * g / 100);
       };
 
+      // Alimenti numerabili (unitG): mostra il campo pezzi e tienilo in sync coi grammi
+      const syncCount = () => {
+        if (per100?.unitG) {
+          countField.style.display = '';
+          const g = Number(gramsInp.value);
+          countInp.value = g ? round1(g / per100.unitG) : '';
+        } else {
+          countField.style.display = 'none';
+          countInp.value = '';
+        }
+      };
+
       const pick = fd => {
         per100 = fd;
         nameInp.value = fd.name;
         list.classList.remove('open');
-        if (!gramsInp.value) gramsInp.value = 100;
+        // Grammatura ricordata dall'ultima volta; altrimenti 1 pezzo o 100 g
+        const pref = Store.data.foodPrefs[fd.name.toLowerCase()];
+        if (!gramsInp.value || !existing) gramsInp.value = pref || (fd.unitG ? fd.unitG : 100);
+        syncCount();
         recalc();
       };
+      if (per100) syncCount(); // modifica di un alimento numerabile esistente
 
       let debounceT = null;
       const showSuggestions = () => {
@@ -1648,7 +1669,7 @@ function foodForm(existing = null, mealKey = 'Colazione') {
         }
 
         list.innerHTML = matches.map((fd, i) =>
-          `<button type="button" class="fs-item" data-i="${i}"><span>${esc(fd.name)}</span><small>${fd.kcal} kcal · P${fd.protein} C${fd.carbs} G${fd.fat} ${t('per100')}</small></button>`
+          `<button type="button" class="fs-item" data-i="${i}"><span>${esc(fd.name)}</span><small>${fd.kcal} kcal ${t('per100')}${fd.unitG ? ' · ' + t('pieceApprox', fd.unitG) : ''}</small></button>`
         ).join('') + `<button type="button" class="fs-item fs-online" id="ffOnline">${ic('search')} ${t('searchOnline')}: "${esc(nameInp.value.trim())}"</button>`;
         list.classList.add('open');
         $$('.fs-item[data-i]', list).forEach(b => b.onclick = () => pick(matches[Number(b.dataset.i)]));
@@ -1677,8 +1698,14 @@ function foodForm(existing = null, mealKey = 'Colazione') {
         } catch { list.innerHTML = `<div class="fs-empty">${t('onlineErr')}</div>`; }
       };
 
-      nameInp.oninput = () => { per100 = null; showSuggestions(); };
-      gramsInp.oninput = recalc;
+      nameInp.oninput = () => { per100 = null; syncCount(); showSuggestions(); };
+      gramsInp.oninput = () => { syncCount(); recalc(); };
+      countInp.oninput = () => {
+        if (!per100?.unitG) return;
+        const n = Number(countInp.value);
+        gramsInp.value = n ? round1(n * per100.unitG) : '';
+        recalc();
+      };
       root.addEventListener('click', e => { if (!e.target.closest('.fs-wrap')) list.classList.remove('open'); });
 
       $('#ffSave', root).onclick = async () => {
@@ -1702,10 +1729,11 @@ function foodForm(existing = null, mealKey = 'Colazione') {
         }
         if (!validateForm(root)) { Toast.show(t('reqFields'), 'error'); return; }
         const grams = Number(gramsInp.value) || 0;
+        const count = per100?.unitG ? Number(countInp.value) || 0 : 0;
         const rec = {
           id: existing?.id || uid(), date: existing?.date || State.foodDate,
           meal: $('#ffMeal', root).value, name: nameInp.value.trim(),
-          qty: grams ? `${grams} g` : '—',
+          qty: count ? `${count} pz (${grams} g)` : (grams ? `${grams} g` : '—'),
           kcal: Number($('#ffKcal', root).value), protein: Number($('#ffP', root).value) || 0,
           carbs: Number($('#ffC', root).value) || 0, fat: Number($('#ffF', root).value) || 0,
         };
@@ -1720,6 +1748,8 @@ function foodForm(existing = null, mealKey = 'Colazione') {
           });
           Toast.show(t('foodDbAdded', rec.name), 'info');
         }
+        // Memorizza la grammatura: la prossima volta l'alimento parte da qui
+        if (rec.name && grams > 0) Store.data.foodPrefs[rec.name.toLowerCase()] = grams;
         if (existing) {
           const i = Store.data.meals.findIndex(x => x.id === existing.id);
           Store.data.meals[i] = rec;
