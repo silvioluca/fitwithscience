@@ -713,12 +713,69 @@ const M_FIELDS = [
 const fl = f => f[Lang.lang] || f.it;
 
 /* Helper HTML */
+/* Descrizioni brevi delle metriche (tooltip ⓘ) — lookup per etichetta tradotta */
+function statTips() {
+  const F = k => M_FIELDS.find(f => f.key === k);
+  return {
+    [t('curWeight')]: t('tipWeight'), 'BMI': t('tipBmi'), [t('bodyFat')]: t('tipBf'),
+    [t('streak')]: t('tipStreak'), [t('kcalToday')]: t('tipKcalToday'), [t('workouts7')]: t('tipWork7'),
+    [t('nextSession')]: t('tipNext'), [t('proteinToday')]: t('tipProteinToday'),
+    [t('totSessions')]: t('tipSessions'), [t('totVolume')]: t('tipVolume'),
+    [t('exDone')]: t('tipExDone'), [t('avgDuration')]: t('tipAvgDur'),
+    [t('kcalLbl2')]: t('tipKcal'), [t('proteinS')]: t('tipProtein'),
+    [t('carbsS')]: t('tipCarbs'), [t('fatS')]: t('tipFat'),
+    [t('readiness')]: t('tipReadiness'), [t('sleepLast')]: t('tipSleep'),
+    [t('rhrLbl')]: t('tipRhr'), [t('hrvLbl')]: t('tipHrv'),
+    [t('estVo2')]: t('tipVo2'), [t('fitnessAge')]: t('tipFitAge'),
+    ['Δ ' + fl(F('weight'))]: t('tipDeltaW'), ['Δ ' + fl(F('waist'))]: t('tipDeltaWaist'),
+    [t('sessions')]: t('tipSessions'), 'Volume': t('tipVolume'),
+  };
+}
+
 function statCard(label, value, delta, deltaCls, icoName, icoCls) {
+  const tip = statTips()[label];
   return `<div class="stat-card">
     <div class="stat-top"><span class="stat-label">${label}</span><span class="stat-ico ${icoCls}">${ic(icoName)}</span></div>
     <div class="stat-value">${value}</div>
     ${delta ? `<div class="stat-delta ${deltaCls}">${delta}</div>` : ''}
+    ${tip ? `<button type="button" class="info-tip" data-tip="${esc(tip)}" aria-label="Info">i</button>` : ''}
   </div>`;
+}
+
+/* Tooltip per le card (grafici, liste, tabelle) — lookup per titolo tradotto */
+function cardTips() {
+  const F = k => M_FIELDS.find(f => f.key === k);
+  return {
+    [t('weightTrend')]: t('tipChWeight'), [fl(F('weight'))]: t('tipChWeight'),
+    [t('volTitle')]: t('tipVolume'), [t('volOverTime')]: t('tipVolume'),
+    [t('dailyKcal')]: t('tipChKcal'), [t('kcalLbl2')]: t('tipChKcal'),
+    [t('macroToday')]: t('tipChMacro'),
+    [t('lastWorkouts')]: t('tipLastWork'), [t('lastMeasures')]: t('tipLastMeas'), [t('prs')]: t('tipPrs'),
+    [t('trendTime')]: t('tipTrendTime'), [t('deltasPct')]: t('tipDeltas'),
+    [t('allMeasChart')]: t('tipAllMeas'), [t('historyMeas')]: t('tipHistMeas'),
+    [t('muscleFreq')]: t('tipMuscleFreq'), [t('workHistory')]: t('tipWorkHist'),
+    [t('nutriGoals')]: t('tipNutriGoals'), [t('water')]: t('tipWater'),
+    [t('sleep14')]: t('tipSleep14'), [t('rhrHrv14')]: t('tipRhrHrv'),
+    [t('readinessTrend')]: t('tipReadiness'), [t('readyBreak')]: t('tipReadyBreak'),
+    [t('fitnessAge')]: t('tipFitAge'), [t('hrZones')]: t('tipZones'),
+    [t('rhrHistory')]: t('tipRhr'), [t('hrvHistory')]: t('tipHrv'),
+    [t('keyGirths')]: t('tipGirths'), [t('pctImprove')]: t('tipImprove'),
+  };
+}
+
+/* Inietta l'icona info nei titoli card dopo il render della pagina */
+function hydrateCardTips() {
+  let tips;
+  try { tips = cardTips(); } catch { return; }
+  $$('#content .card-title').forEach(el => {
+    const card = el.closest('.card');
+    if (!card || card.querySelector(':scope > .info-tip') || el.querySelector('.info-tip')) return;
+    const key = (el.childNodes[0]?.textContent ?? el.textContent).trim();
+    const tip = tips[key];
+    if (!tip) return;
+    // sempre nell'angolo in alto a destra; il CSS fa spazio agli altri controlli
+    card.insertAdjacentHTML('beforeend', `<button type="button" class="info-tip card-corner" data-tip="${esc(tip)}" aria-label="Info">i</button>`);
+  });
 }
 
 function macroBar(name, val, goal, unit) {
@@ -765,28 +822,53 @@ const Wellness = {
     return ((w.deepMin || 0) + (w.remMin || 0)) / w.sleepMin * 100;
   },
 
-  /* Readiness 0–100: componenti presenti pesate uguali.
+  /* Componenti readiness 0–100 (presenti → pesate uguali nel totale).
      RHR sotto baseline = meglio; HRV sopra baseline = meglio;
      sonno vs 7h45; quota ristorativa vs 45%. */
-  readiness(date) {
+  readinessParts(date) {
     const w = this.get(date);
     if (!w) return null;
-    const parts = [];
     const clamp = v => Math.max(0, Math.min(100, Math.round(v)));
+    const parts = {};
 
     if (w.rhr != null) {
       const base = this.baseline('rhr', date);
-      parts.push(base ? clamp(50 + (base - w.rhr) * 5) : 50);
+      parts.rhr = base ? clamp(50 + (base - w.rhr) * 5) : 50;
     }
     if (w.hrv != null) {
       const base = this.baseline('hrv', date);
-      parts.push(base ? clamp(50 + (w.hrv - base) * 2) : 50);
+      parts.hrv = base ? clamp(50 + (w.hrv - base) * 2) : 50;
     }
-    if (w.sleepMin != null) parts.push(clamp(w.sleepMin / 465 * 100));
+    if (w.sleepMin != null) parts.sleep = clamp(w.sleepMin / 465 * 100);
     const q = this.sleepQuality(w);
-    if (q != null) parts.push(clamp(q / 45 * 100));
+    if (q != null) parts.quality = clamp(q / 45 * 100);
 
-    return parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
+    return Object.keys(parts).length ? parts : null;
+  },
+
+  readiness(date) {
+    const parts = this.readinessParts(date);
+    if (!parts) return null;
+    const vals = Object.values(parts);
+    return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  },
+
+  /* Trend 0–100 su tutto lo storico: regressione lineare del campo.
+     dir −1 = scendere è adattamento (RHR); dir +1 = salire (HRV).
+     50 = piatto; k scala la pendenza mensile. */
+  trendScore(field, dir, k) {
+    const ds = this.days().map(d => ({ d, v: this.get(d)?.[field] })).filter(x => x.v != null);
+    if (ds.length < 5) return null;
+    const x0 = new Date(ds[0].d + 'T00:00');
+    const xs = ds.map(x => (new Date(x.d + 'T00:00') - x0) / 86400000);
+    const ys = ds.map(x => x.v);
+    const n = xs.length;
+    const sx = xs.reduce((a, b) => a + b, 0), sy = ys.reduce((a, b) => a + b, 0);
+    const sxy = xs.reduce((a, x, i) => a + x * ys[i], 0), sxx = xs.reduce((a, x) => a + x * x, 0);
+    const denom = n * sxx - sx * sx;
+    if (!denom) return null;
+    const perMonth = (n * sxy - sx * sy) / denom * 30;
+    return Math.max(0, Math.min(100, Math.round(50 + dir * perMonth * k)));
   },
 
   /* Zone Karvonen: HRmax Tanaka (208 − 0.7×età), riserva = HRmax − RHR */
@@ -885,6 +967,42 @@ function wellnessForm(date = todayISO()) {
   });
 }
 
+/* Modale unica di import benessere: Fitbit / CSV Zepp / .db Health Connect.
+   Richiamabile dalle pagine Riposo e Salute oltre che dalle Impostazioni. */
+function wellnessImportDialog() {
+  Modal.open({
+    title: t('importWellness'),
+    body: `
+      <div class="list-row">
+        <div class="list-ico ico-blue">${ic('activity')}</div>
+        <div class="list-main"><b>Fitbit</b><span>${t('intFitbit')}</span></div>
+        <button class="btn btn-sm btn-fixed ${Fitbit.connected() ? '' : 'btn-blue'}" id="wiFb" style="margin-left:auto">${Fitbit.connected() ? t('syncBtn') : t('connectBtn')}</button>
+      </div>
+      <div class="list-row">
+        <div class="list-ico ico-emerald">${ic('upload')}</div>
+        <div class="list-main"><b>Zepp / Amazfit · CSV</b><span>${t('intZepp')}</span></div>
+        <button class="btn btn-sm btn-fixed" id="wiZepp" style="margin-left:auto">${t('impBtn')}</button>
+        <input type="file" id="wiZeppFile" accept=".csv,text/csv" hidden>
+      </div>
+      <div class="list-row">
+        <div class="list-ico ico-purple">${ic('upload')}</div>
+        <div class="list-main"><b>Health Connect · .db</b><span>${t('intHc')}</span></div>
+        <button class="btn btn-sm btn-fixed" id="wiHc" style="margin-left:auto">${t('impBtn')}</button>
+        <input type="file" id="wiHcFile" accept=".db,application/octet-stream,application/x-sqlite3" hidden>
+      </div>`,
+    onMount(root) {
+      $('#wiFb', root).onclick = () => {
+        if (Fitbit.connected()) { Modal.close(); Fitbit.sync(false); }
+        else Fitbit.connect();
+      };
+      $('#wiZepp', root).onclick = () => $('#wiZeppFile', root).click();
+      $('#wiZeppFile', root).onchange = e => { const f = e.target.files[0]; if (f) { Modal.close(); importWellnessCSV(f); } };
+      $('#wiHc', root).onclick = () => $('#wiHcFile', root).click();
+      $('#wiHcFile', root).onchange = e => { const f = e.target.files[0]; if (f) { Modal.close(); importHealthConnectDB(f); } };
+    },
+  });
+}
+
 /* CSV benessere generico (Zepp/Amazfit e simili): riconosce le colonne
    dalle intestazioni — date, deep/profondo, rem, light/shallow, rhr/resting,
    hrv/rmssd, duration/totale. Valori sonno in minuti. */
@@ -925,6 +1043,129 @@ function parseWellnessCSV(text) {
     if (Object.keys(rec).length) out[date] = rec;
   });
   return out;
+}
+
+/* =====================================================================
+   HEALTH CONNECT — import del database SQLite esportato (.db)
+   Letto interamente nel browser via sql.js (WASM, caricato on-demand).
+   Lo schema interno varia tra versioni → introspezione tollerante:
+   si cercano tabelle/colonne per pattern, non per nome esatto.
+   ===================================================================== */
+function loadSqlJs() {
+  if (window.initSqlJs) return Promise.resolve(window.initSqlJs);
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js';
+    s.onload = () => res(window.initSqlJs);
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+async function importHealthConnectDB(file) {
+  Toast.show(t('hcLoading'), 'info');
+  let db;
+  try {
+    const initSqlJs = await loadSqlJs();
+    const SQL = await initSqlJs({ locateFile: f => 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/' + f });
+    db = new SQL.Database(new Uint8Array(await file.arrayBuffer()));
+  } catch { Toast.show(t('invalidFile'), 'error'); return; }
+
+  try {
+    const tables = (db.exec("SELECT name FROM sqlite_master WHERE type='table'")[0]?.values || []).flat();
+    const cols = tb => (db.exec(`PRAGMA table_info(${JSON.stringify(tb)})`)[0]?.values || []).map(r => String(r[1]));
+    const findT = re => tables.find(n => re.test(n.toLowerCase()));
+    const findC = (cs, re, not = /$^/) => cs.find(c => re.test(c.toLowerCase()) && !not.test(c.toLowerCase()));
+    const toDate = v => { const n = Number(v); return n > 1e10 ? isoOf(new Date(n)) : null; }; // epoch ms
+    const rows = tb => { const r = db.exec(`SELECT * FROM ${JSON.stringify(tb)}`)[0]; return r ? r.values.map(v => Object.fromEntries(r.columns.map((c, i) => [c, v[i]]))) : []; };
+
+    const well = Store.data.wellness;
+    const put = (date, field, val) => { if (!date || val == null) return; well[date] = well[date] || {}; well[date][field] = val; touched.add(date); };
+    const touched = new Set();
+
+    // FC a riposo
+    const tRhr = findT(/resting_heart_rate/);
+    if (tRhr) {
+      const cs = cols(tRhr);
+      const cT = findC(cs, /time/), cV = findC(cs, /beats|bpm|rate/, /time/);
+      if (cT && cV) rows(tRhr).forEach(r => { const v = Number(r[cV]); if (v > 20 && v < 130) put(toDate(r[cT]), 'rhr', Math.round(v)); });
+    }
+
+    // HRV rMSSD
+    const tHrv = findT(/heart_rate_variability/);
+    if (tHrv) {
+      const cs = cols(tHrv);
+      const cT = findC(cs, /time/), cV = findC(cs, /millis|rmssd|variability/, /time/);
+      if (cT && cV) rows(tHrv).forEach(r => { const v = Number(r[cV]); if (v > 1 && v < 300) put(toDate(r[cT]), 'hrv', round1(v)); });
+    }
+
+    // Sessioni di sonno (durata) — data = fine sessione
+    const tSleep = findT(/sleep_session/);
+    if (tSleep) {
+      const cs = cols(tSleep);
+      const cS = findC(cs, /start.*time|time.*start/), cE = findC(cs, /end.*time|time.*end/);
+      if (cS && cE) rows(tSleep).forEach(r => {
+        const start = Number(r[cS]), end = Number(r[cE]);
+        if (end > start && start > 1e10) {
+          const min = Math.round((end - start) / 60000);
+          if (min > 60 && min < 20 * 60) put(toDate(end), 'sleepMin', min);
+        }
+      });
+    }
+
+    // Fasi del sonno: HC stage_type → 5 = deep, 6 = REM
+    const tStage = findT(/sleep_stage/);
+    if (tStage) {
+      const cs = cols(tStage);
+      const cS = findC(cs, /start.*time|time.*start/), cE = findC(cs, /end.*time|time.*end/), cTy = findC(cs, /type|stage/, /time/);
+      if (cS && cE && cTy) {
+        const acc = {}; // date → {deep, rem}
+        rows(tStage).forEach(r => {
+          const start = Number(r[cS]), end = Number(r[cE]), ty = Number(r[cTy]);
+          if (!(end > start && start > 1e10)) return;
+          const d = toDate(end);
+          const min = (end - start) / 60000;
+          acc[d] = acc[d] || { deep: 0, rem: 0 };
+          if (ty === 5) acc[d].deep += min;
+          if (ty === 6) acc[d].rem += min;
+        });
+        Object.entries(acc).forEach(([d, v]) => {
+          if (v.deep) put(d, 'deepMin', Math.round(v.deep));
+          if (v.rem) put(d, 'remMin', Math.round(v.rem));
+        });
+      }
+    }
+
+    // Peso → misurazioni (non sovrascrive giorni già presenti)
+    let weights = 0;
+    const tW = findT(/weight_record/);
+    if (tW && !/planned/.test(tW)) {
+      const cs = cols(tW);
+      const cT = findC(cs, /time/), cV = findC(cs, /weight|grams|kilo/, /time/);
+      if (cT && cV) {
+        const existing = new Set(Store.data.measurements.map(m => m.date));
+        rows(tW).forEach(r => {
+          let v = Number(r[cV]);
+          if (v > 1000) v = v / 1000; // grammi → kg
+          const d = toDate(r[cT]);
+          if (d && v >= 30 && v <= 300 && !existing.has(d)) {
+            Store.data.measurements.push({ id: 'hc' + uid(), date: d, weight: round1(v), height: Store.data.profile.height ?? null, source: 'hc' });
+            existing.add(d);
+            weights++;
+          }
+        });
+      }
+    }
+
+    db.close();
+    if (!touched.size && !weights) { Toast.show(t('hcNone'), 'error'); return; }
+    Store.save();
+    Toast.show(t('hcImported', touched.size, weights));
+    Router.render();
+  } catch {
+    db.close();
+    Toast.show(t('hcNone'), 'error');
+  }
 }
 
 function importWellnessCSV(file) {
@@ -1141,24 +1382,49 @@ const Pages = {
     drawMetric('weight');
     $('#mMetric').onchange = e => drawMetric(e.target.value);
 
-    // Grafico unico con tutte le misure: linea+punti, un colore per tipologia
+    // Grafico unico con tutte le misure: variazione % dal primo rilevamento
+    // di ogni serie → unità diverse (kg, cm, %) confrontabili sullo stesso asse
     {
       const ms = Stats.sortedMeasurements();
       const palette = ['#10b981', '#2563eb', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6', '#6366f1', '#a855f7'];
       const fields = M_FIELDS.filter(f => f.key !== 'height'); // l'altezza è costante
+      const raw = {}; // valori assoluti per il tooltip
+      const pct = f => {
+        const base = ms.map(m => m[f.key]).find(v => v != null);
+        raw[f.key] = ms.map(m => m[f.key]);
+        return ms.map(m => (m[f.key] == null || !base) ? null : round1((m[f.key] / base - 1) * 100));
+      };
+      const base = Charts.baseOpts();
       Charts.make('chAllMeas', {
         type: 'line',
         data: {
           labels: ms.map(m => fmtDateShort(m.date)),
           datasets: fields.map((f, i) => ({
-            label: `${fl(f)} (${f.unit})`,
-            data: ms.map(m => m[f.key]),
+            label: fl(f),
+            data: pct(f),
+            _key: f.key, _unit: f.unit,
             borderColor: palette[i % palette.length],
             backgroundColor: palette[i % palette.length],
             tension: .3, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2, spanGaps: true, fill: false,
           })),
         },
-        options: Charts.baseOpts(),
+        options: {
+          ...base,
+          scales: { ...base.scales, y: { ...base.scales.y, ticks: { ...base.scales.y.ticks, callback: v => v + '%' } } },
+          plugins: {
+            ...base.plugins,
+            tooltip: {
+              ...base.plugins.tooltip,
+              callbacks: {
+                label: ctx => {
+                  const abs = raw[ctx.dataset._key]?.[ctx.dataIndex];
+                  const p = ctx.parsed.y;
+                  return ` ${ctx.dataset.label}: ${p > 0 ? '+' : ''}${p}% (${abs} ${ctx.dataset._unit})`;
+                },
+              },
+            },
+          },
+        },
       });
     }
 
@@ -1381,7 +1647,10 @@ const Pages = {
       return `<div class="page">
         <div class="page-head">
           <div class="page-title"><h1>${t('navRest')}</h1><p>${t('restSub')}</p></div>
-          <div class="actions"><button class="btn btn-primary" id="btnAddWell">${ic('plus')} ${t('addWellness')}</button></div>
+          <div class="actions">
+            <button class="btn" id="btnImpWell">${ic('upload')} ${t('importWellness')}</button>
+            <button class="btn btn-primary" id="btnAddWell">${ic('plus')} ${t('addWellness')}</button>
+          </div>
         </div>
         <div class="card">${emptyState('moon', t('noWellness'), t('noWellnessP'))}</div>
       </div>`;
@@ -1397,7 +1666,10 @@ const Pages = {
     <div class="page">
       <div class="page-head">
         <div class="page-title"><h1>${t('navRest')}</h1><p>${t('restSub')} · ${fmtDate(last)}</p></div>
-        <div class="actions"><button class="btn btn-primary" id="btnAddWell">${ic('plus')} ${t('addWellness')}</button></div>
+        <div class="actions">
+          <button class="btn" id="btnImpWell">${ic('upload')} ${t('importWellness')}</button>
+          <button class="btn btn-primary" id="btnAddWell">${ic('plus')} ${t('addWellness')}</button>
+        </div>
       </div>
 
       <div class="grid grid-stats">
@@ -1406,6 +1678,19 @@ const Pages = {
         ${statCard(t('rhrLbl'), w.rhr != null ? `${w.rhr}<small> ${t('bpm')}</small>` : '—', '', 'delta-neutral', 'heart', 'ico-blue')}
         ${statCard(t('hrvLbl'), w.hrv != null ? `${w.hrv}<small> ${t('ms')}</small>` : '—', '', 'delta-neutral', 'activity', 'ico-amber')}
       </div>
+
+      ${(() => {
+        const parts = Wellness.readinessParts(last);
+        if (!parts) return '';
+        const label = { rhr: t('rhrLbl'), hrv: t('hrvLbl'), sleep: t('compSleep'), quality: t('compQuality') };
+        return `<div class="card mt"><div class="card-title">${t('readyBreak')}</div><div class="card-sub">${fmtDate(last)} · ${t('readinessSub')}</div>
+          <div class="grid grid-stats" style="margin-top:6px">
+            ${Object.entries(parts).map(([k, v]) => `<div>
+              <div class="macro-head" style="margin-bottom:6px"><b>${label[k]}</b><span>${v}/100</span></div>
+              <div class="progress"><div class="progress-fill ${v < 50 ? 'over' : ''}" style="width:${v}%"></div></div>
+            </div>`).join('')}
+          </div></div>`;
+      })()}
 
       <div class="grid grid-2 mt">
         <div class="card"><div class="card-title">${t('sleep14')}</div><div class="card-sub">${t('sleepQualityRef')}</div>
@@ -1422,6 +1707,7 @@ const Pages = {
 
   riposoMount() {
     $('#btnAddWell').onclick = () => wellnessForm();
+    $('#btnImpWell').onclick = () => wellnessImportDialog();
     const days = Wellness.days();
     if (!days.length) return;
 
@@ -1518,7 +1804,10 @@ const Pages = {
     <div class="page">
       <div class="page-head">
         <div class="page-title"><h1>${t('navHealth')}</h1><p>${t('healthSub')}</p></div>
-        <div class="actions"><button class="btn btn-primary" id="btnAddWell2">${ic('plus')} ${t('addWellness')}</button></div>
+        <div class="actions">
+          <button class="btn" id="btnImpWell2">${ic('upload')} ${t('importWellness')}</button>
+          <button class="btn btn-primary" id="btnAddWell2">${ic('plus')} ${t('addWellness')}</button>
+        </div>
       </div>
 
       <div class="grid grid-stats">
@@ -1531,16 +1820,22 @@ const Pages = {
       <div class="grid grid-2 mt">
         ${faBlock}
         ${zoneBlock}
-        <div class="card"><div class="card-title">${t('rhrHistory')}</div>
-          <div class="chart-wrap"><canvas id="chRhrHist"></canvas></div></div>
-        <div class="card"><div class="card-title">${t('hrvHistory')}</div>
-          <div class="chart-wrap"><canvas id="chHrvHist"></canvas></div></div>
+        ${(() => {
+          const tr = Wellness.trendScore('rhr', -1, 40);
+          const th = Wellness.trendScore('hrv', 1, 10);
+          const badge = v => v == null ? '' : `<span class="badge ${v >= 55 ? 'badge-emerald' : v >= 45 ? 'badge-blue' : 'badge-red'}">${t('trendLbl')} ${v}/100</span>`;
+          return `<div class="card"><div class="card-head-row"><div class="card-title">${t('rhrHistory')}</div>${badge(tr)}</div>
+            <div class="chart-wrap"><canvas id="chRhrHist"></canvas></div></div>
+          <div class="card"><div class="card-head-row"><div class="card-title">${t('hrvHistory')}</div>${badge(th)}</div>
+            <div class="chart-wrap"><canvas id="chHrvHist"></canvas></div></div>`;
+        })()}
       </div>
     </div>`;
   },
 
   saluteMount() {
     $('#btnAddWell2').onclick = () => wellnessForm();
+    $('#btnImpWell2').onclick = () => wellnessImportDialog();
     const days = Wellness.days();
     if (!days.length) return;
 
@@ -2782,7 +3077,9 @@ function settingsForm(user) {
       <input type="file" id="stZeppFile" accept=".csv,text/csv" hidden>
 
       <div style="font-weight:700;font-size:13.5px;margin:18px 0 4px">Google Health Connect</div>
-      <div style="font-size:12.5px;color:var(--text-soft);line-height:1.5">${t('intHc')}</div>`,
+      <div style="font-size:12.5px;color:var(--text-soft);margin-bottom:10px;line-height:1.5">${t('intHc')}</div>
+      <button class="btn" id="stHcBtn">${ic('upload')} ${t('hcImport')}</button>
+      <input type="file" id="stHcFile" accept=".db,application/octet-stream,application/x-sqlite3" hidden>`,
     footer: `<button class="btn" onclick="Modal.close()">${t('cancel')}</button><button class="btn btn-primary" id="stSave">${t('save')}</button>`,
     onMount(root) {
       if (Fitbit.connected()) {
@@ -2798,6 +3095,13 @@ function settingsForm(user) {
         if (!file) return;
         Modal.close();
         importWellnessCSV(file);
+      };
+      $('#stHcBtn', root).onclick = () => $('#stHcFile', root).click();
+      $('#stHcFile', root).onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        Modal.close();
+        importHealthConnectDB(file);
       };
       $('#stGfitFile', root).onchange = e => {
         const file = e.target.files[0];
@@ -3154,6 +3458,7 @@ const Router = {
     if (p === 'progressi') Pages.progressiMount();
 
     $$('.nav-item, .bnav-item').forEach(n => n.classList.toggle('active', n.dataset.page === p));
+    hydrateCardTips();
   },
 };
 

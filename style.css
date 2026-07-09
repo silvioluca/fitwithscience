@@ -489,6 +489,7 @@ body.auth-locked .auth-screen { display: flex; }
    CARDS / GRIDS
    ===================================================== */
 .card {
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -496,7 +497,7 @@ body.auth-locked .auth-screen { display: flex; }
   padding: 20px;
   transition: transform .2s, box-shadow .25s, background .3s;
 }
-.card:hover { box-shadow: var(--shadow-lg); }
+.card:hover { box-shadow: var(--shadow-lg); z-index: 60; }
 .card-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
 .card-sub { font-size: 12.5px; color: var(--text-soft); margin-bottom: 14px; }
 .card-head-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -516,10 +517,10 @@ body.auth-locked .auth-screen { display: flex; }
   box-shadow: var(--shadow);
   padding: 18px;
   position: relative;
-  overflow: hidden;
+  overflow: visible; /* il tooltip info deve poter uscire */
   transition: transform .2s, box-shadow .25s;
 }
-.stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+.stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); z-index: 60; }
 
 .stat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .stat-label { font-size: 12px; font-weight: 600; color: var(--text-soft); text-transform: uppercase; letter-spacing: .04em; }
@@ -541,6 +542,77 @@ body.auth-locked .auth-screen { display: flex; }
 .delta-up { color: var(--red); }
 .delta-good { color: var(--emerald); }
 .delta-neutral { color: var(--text-faint); }
+
+/* Icona info con tooltip (hover / focus) */
+.stat-top-right { display: flex; align-items: center; gap: 7px; }
+.info-tip {
+  width: 17px; height: 17px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 800;
+  font-style: normal;
+  line-height: 1;
+  display: inline-grid;
+  place-items: center;
+  cursor: help;
+  position: relative;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color .15s, border-color .15s;
+}
+.info-tip:hover, .info-tip:focus { color: var(--emerald); border-color: var(--emerald); outline: none; }
+.info-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: -6px;
+  width: max-content;
+  max-width: 240px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: left;
+  padding: 8px 11px;
+  border-radius: 9px;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity .15s, transform .15s;
+  z-index: 80;
+  white-space: normal;
+}
+.info-tip:hover::after, .info-tip:focus::after { opacity: 1; transform: none; }
+
+.stat-card > .info-tip { position: absolute; right: 16px; bottom: 16px; }
+.stat-card > .info-tip::after { bottom: calc(100% + 8px); right: -4px; }
+
+@media (max-width: 600px) {
+  /* il transform su hover creerebbe un containing-block per il tooltip fixed */
+  .stat-card:hover { transform: none; }
+  /* il selettore stat-card serve a battere in specificità la regola desktop
+     (.stat-card > .info-tip::after) che altrimenti manterrebbe bottom:100% */
+  .info-tip::after,
+  .stat-card > .info-tip::after {
+    position: fixed;
+    left: 16px; right: 16px;
+    top: auto;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
+  }
+}
+.card-title .info-tip { margin-left: 7px; vertical-align: -2px; }
+.card > .info-tip.card-corner { position: absolute; top: 14px; right: 14px; z-index: 5; }
+/* La card con l'icona nell'angolo fa spazio ai controlli che stavano lì */
+.card:has(> .info-tip.card-corner) > .card-head-row,
+.card:has(> .info-tip.card-corner) .table-toolbar { padding-right: 34px; }
+.card.table-card:has(> .info-tip.card-corner) .table-toolbar { padding-right: 46px; }
 
 /* Chart wrapper */
 .chart-wrap { position: relative; height: 280px; }
@@ -982,6 +1054,14 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
 }
 
+/* Pulsanti uniformi (modale import dispositivi) */
+.btn-fixed {
+  width: 128px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 0 10px;
+}
+
 /* Autocomplete alimenti */
 .fs-wrap { position: relative; }
 .fs-list {
@@ -1112,6 +1192,11 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 }
 .bnav-item span { font-size: 18px; }
 .bnav-item.active { color: var(--emerald); }
+
+/* Display stretti: nella bottom nav restano solo Home, Workout, Cibo, Riposo, Salute */
+@media (max-width: 560px) {
+  .bnav-item.bnav-extra { display: none; }
+}
 
 /* =====================================================
    RESPONSIVE
