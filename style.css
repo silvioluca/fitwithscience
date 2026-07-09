@@ -1094,9 +1094,12 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   backdrop-filter: blur(14px);
   border-top: 1px solid var(--border);
   z-index: 45;
+  overflow-x: auto; /* 8 voci: scorribile sui display stretti */
+  -webkit-overflow-scrolling: touch;
 }
 .bnav-item {
   flex: 1;
+  min-width: 56px;
   display: flex;
   flex-direction: column;
   align-items: center;

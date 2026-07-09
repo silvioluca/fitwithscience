@@ -142,6 +142,7 @@ const ICONS = {
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
   user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   gauge: '<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M12 3v3"/><path d="m17 6.3-2 2"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+  heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
   share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>',
@@ -155,8 +156,8 @@ function hydrateIcons(root = document) {
 
 /* Aggiorna le etichette statiche di index.html secondo la lingua attiva */
 function applyStaticLang() {
-  const navMap = { dashboard: 'navDash', misure: 'navMeas', allenamento: 'navWork', alimentazione: 'navFood', calendario: 'navCal', progressi: 'navProg' };
-  const bnavMap = { dashboard: 'bnavHome', misure: 'bnavMeas', allenamento: 'bnavWork', alimentazione: 'bnavFood', calendario: 'bnavCal', progressi: 'bnavProg' };
+  const navMap = { dashboard: 'navDash', misure: 'navMeas', allenamento: 'navWork', alimentazione: 'navFood', riposo: 'navRest', salute: 'navHealth', calendario: 'navCal', progressi: 'navProg' };
+  const bnavMap = { dashboard: 'bnavHome', misure: 'bnavMeas', allenamento: 'bnavWork', alimentazione: 'bnavFood', riposo: 'bnavRest', salute: 'bnavHealth', calendario: 'bnavCal', progressi: 'bnavProg' };
   $$('.nav-item').forEach(n => { $('.nav-label', n).textContent = t(navMap[n.dataset.page]); });
   $$('.bnav-item').forEach(n => { n.lastChild.textContent = t(bnavMap[n.dataset.page]); });
   $('.brand-tag').textContent = t('brandTag');
@@ -274,6 +275,7 @@ const Store = {
     if (!Array.isArray(this.data.customFoods)) this.data.customFoods = [];
     if (!Array.isArray(this.data.customExercises)) this.data.customExercises = [];
     if (!this.data.foodPrefs || typeof this.data.foodPrefs !== 'object') this.data.foodPrefs = {};
+    if (!this.data.wellness || typeof this.data.wellness !== 'object') this.data.wellness = {};
   },
 
   save() {
@@ -285,7 +287,7 @@ const Store = {
     return {
       profile: { firstName: '', lastName: '', age: null, height: null, sex: 'na', goal: 'recomp', bio: '', avatar: null },
       goals: { kcal: 2400, protein: 170, carbs: 260, fat: 75, waterGlasses: 8, weeklyWorkouts: 4 },
-      measurements: [], workouts: [], templates: [], meals: [], water: {}, customFoods: [], customExercises: [], foodPrefs: {},
+      measurements: [], workouts: [], templates: [], meals: [], water: {}, customFoods: [], customExercises: [], foodPrefs: {}, wellness: {},
     };
   },
 
@@ -734,6 +736,210 @@ function emptyState(icoName, title, msg) {
 /* =====================================================================
    PAGINE
    ===================================================================== */
+/* =====================================================================
+   WELLNESS — sonno, FC riposo, HRV, readiness, zone, fitness age
+   Dati per giorno in Store.data.wellness[YYYY-MM-DD]:
+   { rhr, hrv, sleepMin, deepMin, remMin } (tutti opzionali)
+   ===================================================================== */
+const Wellness = {
+  days() { return Object.keys(Store.data.wellness).sort(); },
+  get(date) { return Store.data.wellness[date] || null; },
+  latest(field) {
+    const ds = this.days().reverse();
+    for (const d of ds) { const v = Store.data.wellness[d]?.[field]; if (v != null) return { date: d, value: v }; }
+    return null;
+  },
+
+  /* Media di un campo sugli ultimi n giorni prima di `before` (baseline) */
+  baseline(field, before, n = 30) {
+    const vals = this.days()
+      .filter(d => d < before)
+      .slice(-n)
+      .map(d => Store.data.wellness[d][field])
+      .filter(v => v != null);
+    return vals.length >= 3 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  },
+
+  sleepQuality(w) {
+    if (!w?.sleepMin || (w.deepMin == null && w.remMin == null)) return null;
+    return ((w.deepMin || 0) + (w.remMin || 0)) / w.sleepMin * 100;
+  },
+
+  /* Readiness 0–100: componenti presenti pesate uguali.
+     RHR sotto baseline = meglio; HRV sopra baseline = meglio;
+     sonno vs 7h45; quota ristorativa vs 45%. */
+  readiness(date) {
+    const w = this.get(date);
+    if (!w) return null;
+    const parts = [];
+    const clamp = v => Math.max(0, Math.min(100, Math.round(v)));
+
+    if (w.rhr != null) {
+      const base = this.baseline('rhr', date);
+      parts.push(base ? clamp(50 + (base - w.rhr) * 5) : 50);
+    }
+    if (w.hrv != null) {
+      const base = this.baseline('hrv', date);
+      parts.push(base ? clamp(50 + (w.hrv - base) * 2) : 50);
+    }
+    if (w.sleepMin != null) parts.push(clamp(w.sleepMin / 465 * 100));
+    const q = this.sleepQuality(w);
+    if (q != null) parts.push(clamp(q / 45 * 100));
+
+    return parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
+  },
+
+  /* Zone Karvonen: HRmax Tanaka (208 − 0.7×età), riserva = HRmax − RHR */
+  zones() {
+    const age = Store.data.profile.age;
+    const rhr = this.latest('rhr')?.value;
+    if (!age || !rhr) return null;
+    const hrmax = Math.round(208 - 0.7 * age);
+    const hrr = hrmax - rhr;
+    const at = p => Math.round(rhr + hrr * p);
+    return {
+      hrmax, rhr,
+      bands: [
+        { key: 'z1', from: at(.50), to: at(.60), color: '#2563eb' },
+        { key: 'z2', from: at(.60), to: at(.70), color: '#10b981' },
+        { key: 'z3', from: at(.70), to: at(.80), color: '#f59e0b' },
+        { key: 'z4', from: at(.80), to: at(.90), color: '#f97316' },
+        { key: 'z5', from: at(.90), to: hrmax, color: '#ef4444' },
+      ],
+    };
+  },
+
+  /* VO2max stimato — Jackson et al. (1990), variante BMI, non-exercise */
+  estVo2max() {
+    const p = Store.data.profile;
+    const weight = Stats.latestM()?.weight;
+    if (!p.age || !p.height || !weight) return null;
+    const bmi = weight / ((p.height / 100) ** 2);
+    // PAR 0–7 dal volume medio settimanale reale (ultimi 90 giorni)
+    const cutoff = daysAgo(90);
+    const minWeek = Store.data.workouts.filter(w => w.date >= cutoff).reduce((tt, w) => tt + w.duration, 0) / 13;
+    const par = minWeek >= 300 ? 6 : minWeek >= 200 ? 5 : minWeek >= 120 ? 4 : minWeek >= 60 ? 3 : minWeek >= 20 ? 2 : 1;
+    const male = p.sex !== 'f' ? 1 : 0; // 'na' → formula maschile come default dichiarato
+    return round1(56.363 + 1.921 * par - 0.381 * p.age - 0.754 * bmi + 10.987 * male);
+  },
+
+  /* Fitness age: età anagrafica + delta cappati (stile Garmin/HUNT, euristico) */
+  fitnessAge() {
+    const p = Store.data.profile;
+    const vo2 = this.estVo2max();
+    if (!p.age || vo2 == null) return null;
+    const cap = (v, c) => Math.max(-c, Math.min(c, v));
+
+    // Media VO2max di fascia (approssimazione lineare sul dato di popolazione)
+    const male = p.sex !== 'f';
+    const avgVo2 = (male ? 46 : 38) - 0.30 * (p.age - 25);
+    const dVo2 = cap(-(vo2 - avgVo2) * 0.7, 6);
+
+    const rhr = this.latest('rhr')?.value;
+    const dRhr = rhr != null ? cap(-(60 - rhr) * 0.2, 4) : 0;
+
+    const cutoff = daysAgo(90);
+    const minWeek = Store.data.workouts.filter(w => w.date >= cutoff).reduce((tt, w) => tt + w.duration, 0) / 13;
+    const dAct = cap(-(minWeek - 90) / 60, 2);
+
+    const deltas = [
+      { key: 'faVo2', value: round1(dVo2), detail: `${vo2} vs ~${round1(avgVo2)} ml/kg/min` },
+      { key: 'faRhr', value: round1(dRhr), detail: rhr != null ? `${rhr} ${t('bpm')} vs 60` : '—' },
+      { key: 'faActivity', value: round1(dAct), detail: `${Math.round(minWeek)} min/sett` },
+    ];
+    const fa = Math.max(18, round1(p.age + deltas.reduce((tt, d) => tt + d.value, 0)));
+    return { age: p.age, fitnessAge: fa, delta: round1(fa - p.age), vo2, deltas };
+  },
+};
+
+/* Form inserimento manuale dati benessere */
+function wellnessForm(date = todayISO()) {
+  const w = Wellness.get(date) || {};
+  Modal.open({
+    title: t('wellnessTitle'),
+    body: `<div class="form-grid">
+      <div class="field full"><label>${t('date')} *</label><input type="date" id="wfDate" data-req value="${date}" max="${todayISO()}"><div class="err-msg">${t('required')}</div></div>
+      <div class="field"><label>${t('rhrLbl')} (${t('bpm')})</label><input type="number" min="25" max="120" id="wfRhr" value="${w.rhr ?? ''}" placeholder="55"></div>
+      <div class="field"><label>${t('hrvLbl')} (${t('ms')})</label><input type="number" min="5" max="250" id="wfHrv" value="${w.hrv ?? ''}" placeholder="60"></div>
+      <div class="field"><label>${t('sleepH')}</label><input type="number" min="0" max="16" step="0.25" id="wfSleep" value="${w.sleepMin ? round1(w.sleepMin / 60) : ''}" placeholder="7.5"></div>
+      <div class="field"><label>${t('deepMin')}</label><input type="number" min="0" id="wfDeep" value="${w.deepMin ?? ''}" placeholder="90"></div>
+      <div class="field"><label>${t('remMin')}</label><input type="number" min="0" id="wfRem" value="${w.remMin ?? ''}" placeholder="100"></div>
+    </div>`,
+    footer: `<button class="btn" onclick="Modal.close()">${t('cancel')}</button><button class="btn btn-primary" id="wfSave">${t('save')}</button>`,
+    onMount(root) {
+      $('#wfSave', root).onclick = () => {
+        if (!validateForm(root)) { Toast.show(t('reqFields'), 'error'); return; }
+        const d = $('#wfDate', root).value;
+        const num = id => { const v = $('#' + id, root).value; return v === '' ? null : Number(v); };
+        const rec = { ...(Store.data.wellness[d] || {}) };
+        const rhr = num('wfRhr'), hrv = num('wfHrv'), sh = num('wfSleep'), deep = num('wfDeep'), rem = num('wfRem');
+        if (rhr != null) rec.rhr = rhr;
+        if (hrv != null) rec.hrv = hrv;
+        if (sh != null) rec.sleepMin = Math.round(sh * 60);
+        if (deep != null) rec.deepMin = deep;
+        if (rem != null) rec.remMin = rem;
+        Store.data.wellness[d] = rec;
+        Store.save(); Modal.close(); Toast.show(t('wellnessSaved')); Router.render();
+      };
+    },
+  });
+}
+
+/* CSV benessere generico (Zepp/Amazfit e simili): riconosce le colonne
+   dalle intestazioni — date, deep/profondo, rem, light/shallow, rhr/resting,
+   hrv/rmssd, duration/totale. Valori sonno in minuti. */
+function parseWellnessCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return {};
+  const sep = lines[0].includes(';') ? ';' : ',';
+  const head = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/"/g, ''));
+  const idx = re => head.findIndex(h => re.test(h));
+
+  const iDate = idx(/date|data|giorno|day/);
+  const iDeep = idx(/deep|profondo/);
+  const iRem = idx(/rem/);
+  const iLight = idx(/light|shallow|leggero/);
+  // durata totale: mai le colonne di fase (deep/rem/shallow…)
+  const iDur = head.findIndex(h => !/(deep|rem|shallow|light|profondo|leggero)/.test(h)
+    && /duration|totale|total|sleep.*(min|time|dur)/.test(h));
+  const iRhr = idx(/resting|riposo|rhr/);
+  const iHrv = idx(/hrv|rmssd/);
+  if (iDate < 0) return {};
+
+  const out = {};
+  lines.slice(1).forEach(l => {
+    const c = l.split(sep).map(x => x.trim().replace(/"/g, ''));
+    const m = /(\d{4}-\d{2}-\d{2})/.exec(c[iDate] || '');
+    if (!m) return;
+    const date = m[1];
+    const num = i => { if (i < 0) return null; const v = parseFloat(String(c[i]).replace(',', '.')); return isNaN(v) ? null : v; };
+    const rec = {};
+    const deep = num(iDeep), rem = num(iRem), light = num(iLight), dur = num(iDur);
+    if (deep != null) rec.deepMin = Math.round(deep);
+    if (rem != null) rec.remMin = Math.round(rem);
+    if (dur != null) rec.sleepMin = Math.round(dur);
+    else if (deep != null || rem != null || light != null) rec.sleepMin = Math.round((deep || 0) + (rem || 0) + (light || 0));
+    const rhr = num(iRhr), hrv = num(iHrv);
+    if (rhr != null && rhr > 20 && rhr < 130) rec.rhr = Math.round(rhr);
+    if (hrv != null && hrv > 1 && hrv < 300) rec.hrv = round1(hrv);
+    if (Object.keys(rec).length) out[date] = rec;
+  });
+  return out;
+}
+
+function importWellnessCSV(file) {
+  file.text().then(text => {
+    let rows;
+    try { rows = parseWellnessCSV(text); } catch { Toast.show(t('invalidFile'), 'error'); return; }
+    const dates = Object.keys(rows);
+    if (!dates.length) { Toast.show(t('zeppNone'), 'error'); return; }
+    dates.forEach(d => { Store.data.wellness[d] = { ...(Store.data.wellness[d] || {}), ...rows[d] }; });
+    Store.save();
+    Toast.show(t('zeppImported', dates.length));
+    Router.render();
+  }).catch(() => Toast.show(t('invalidFile'), 'error'));
+}
+
 const Pages = {
 
   /* ------------------------------------------------ DASHBOARD */
@@ -1166,6 +1372,188 @@ const Pages = {
       },
       options: { ...Charts.baseOpts(), scales: { x: { stacked: true, grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }, y: { stacked: true, ticks: { color: '#94a3b8', font: { size: 10 } }, border: { display: false } } } },
     });
+  },
+
+  /* ------------------------------------------------ RIPOSO */
+  riposo() {
+    const days = Wellness.days();
+    if (!days.length) {
+      return `<div class="page">
+        <div class="page-head">
+          <div class="page-title"><h1>${t('navRest')}</h1><p>${t('restSub')}</p></div>
+          <div class="actions"><button class="btn btn-primary" id="btnAddWell">${ic('plus')} ${t('addWellness')}</button></div>
+        </div>
+        <div class="card">${emptyState('moon', t('noWellness'), t('noWellnessP'))}</div>
+      </div>`;
+    }
+
+    const last = days[days.length - 1];
+    const w = Wellness.get(last);
+    const ready = Wellness.readiness(last);
+    const q = Wellness.sleepQuality(w);
+    const sleepStr = w.sleepMin != null ? `${Math.floor(w.sleepMin / 60)}h ${String(w.sleepMin % 60).padStart(2, '0')}` : '—';
+
+    return `
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title"><h1>${t('navRest')}</h1><p>${t('restSub')} · ${fmtDate(last)}</p></div>
+        <div class="actions"><button class="btn btn-primary" id="btnAddWell">${ic('plus')} ${t('addWellness')}</button></div>
+      </div>
+
+      <div class="grid grid-stats">
+        ${statCard(t('readiness'), ready != null ? `${ready}<small> / 100</small>` : '—', t('readinessSub'), ready == null ? 'delta-neutral' : ready >= 70 ? 'delta-good' : ready >= 50 ? 'delta-neutral' : 'delta-up', 'gauge', 'ico-emerald')}
+        ${statCard(t('sleepLast'), sleepStr, q != null ? `${Math.round(q)}% ${t('restorative')}` : '', q != null && q >= 45 ? 'delta-good' : 'delta-neutral', 'moon', 'ico-purple')}
+        ${statCard(t('rhrLbl'), w.rhr != null ? `${w.rhr}<small> ${t('bpm')}</small>` : '—', '', 'delta-neutral', 'heart', 'ico-blue')}
+        ${statCard(t('hrvLbl'), w.hrv != null ? `${w.hrv}<small> ${t('ms')}</small>` : '—', '', 'delta-neutral', 'activity', 'ico-amber')}
+      </div>
+
+      <div class="grid grid-2 mt">
+        <div class="card"><div class="card-title">${t('sleep14')}</div><div class="card-sub">${t('sleepQualityRef')}</div>
+          <div class="chart-wrap"><canvas id="chSleep"></canvas></div></div>
+        <div class="card"><div class="card-title">${t('rhrHrv14')}</div><div class="card-sub">${t('last14')}</div>
+          <div class="chart-wrap"><canvas id="chRhrHrv"></canvas></div></div>
+      </div>
+
+      <div class="card mt"><div class="card-title">${t('readinessTrend')}</div><div class="card-sub">${t('last30')}</div>
+        <div class="chart-wrap short"><canvas id="chReady"></canvas></div>
+        <div style="font-size:11.5px;color:var(--text-faint);margin-top:10px">${t('readinessNote')}</div></div>
+    </div>`;
+  },
+
+  riposoMount() {
+    $('#btnAddWell').onclick = () => wellnessForm();
+    const days = Wellness.days();
+    if (!days.length) return;
+
+    const lastN = n => days.slice(-n);
+
+    // Sonno: barre colorate per qualità
+    const d14 = lastN(14);
+    Charts.make('chSleep', {
+      type: 'bar',
+      data: {
+        labels: d14.map(fmtDateShort),
+        datasets: [{
+          label: t('sleepH'),
+          data: d14.map(d => { const s = Wellness.get(d)?.sleepMin; return s != null ? round1(s / 60) : null; }),
+          backgroundColor: d14.map(d => {
+            const q = Wellness.sleepQuality(Wellness.get(d));
+            return q == null ? Charts.colors.blue + '88' : q >= 45 ? Charts.colors.emerald + 'cc' : Charts.colors.amber + 'cc';
+          }),
+          borderRadius: 8, maxBarThickness: 26,
+        }],
+      },
+      options: Charts.baseOpts(),
+    });
+
+    // RHR + HRV doppio asse
+    Charts.make('chRhrHrv', {
+      type: 'line',
+      data: {
+        labels: d14.map(fmtDateShort),
+        datasets: [
+          { label: t('rhrLbl'), data: d14.map(d => Wellness.get(d)?.rhr ?? null), borderColor: Charts.colors.blue, tension: .3, pointRadius: 3, borderWidth: 2, spanGaps: true, yAxisID: 'y' },
+          { label: t('hrvLbl'), data: d14.map(d => Wellness.get(d)?.hrv ?? null), borderColor: Charts.colors.purple, tension: .3, pointRadius: 3, borderWidth: 2, spanGaps: true, yAxisID: 'y2' },
+        ],
+      },
+      options: {
+        ...Charts.baseOpts(),
+        scales: {
+          ...Charts.baseOpts().scales,
+          y2: { position: 'right', grid: { drawOnChartArea: false }, ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-soft').trim(), font: { family: 'Inter', size: 10.5 } }, border: { display: false } },
+        },
+      },
+    });
+
+    // Readiness 30gg
+    const d30 = lastN(30);
+    Charts.make('chReady', {
+      type: 'line',
+      data: {
+        labels: d30.map(fmtDateShort),
+        datasets: [{ label: t('readiness'), data: d30.map(d => Wellness.readiness(d)), borderColor: Charts.colors.emerald, backgroundColor: Charts.gradient('chReady', Charts.colors.emerald), fill: true, tension: .3, pointRadius: 2, borderWidth: 2, spanGaps: true }],
+      },
+      options: { ...Charts.baseOpts(), scales: { ...Charts.baseOpts().scales, y: { ...Charts.baseOpts().scales.y, min: 0, max: 100 } } },
+    });
+  },
+
+  /* ------------------------------------------------ SALUTE */
+  salute() {
+    const fa = Wellness.fitnessAge();
+    const zones = Wellness.zones();
+    const rhr = Wellness.latest('rhr');
+    const hrv = Wellness.latest('hrv');
+
+    const faBlock = fa ? `
+      <div class="card">
+        <div class="card-title">${t('fitnessAge')}</div><div class="card-sub">${t('faNote')}</div>
+        <div style="display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin:8px 0 14px">
+          <span style="font-size:44px;font-weight:800;color:${fa.delta <= 0 ? 'var(--emerald)' : 'var(--red)'}">${fa.fitnessAge}</span>
+          <span style="font-size:14px;color:var(--text-soft)">vs ${fa.age} ${t('chronoAge')}</span>
+          <span class="badge ${fa.delta <= 0 ? 'badge-emerald' : 'badge-red'}">${fa.delta > 0 ? '+' : ''}${fa.delta} ${t('netDelta')}</span>
+        </div>
+        <div class="cmp-grid" style="grid-template-columns:1fr auto auto">
+          ${fa.deltas.map(d => `<span class="cmp-label">${t(d.key)}</span><span>${d.detail}</span>
+            <span class="cmp-delta" style="color:${d.value <= 0 ? 'var(--emerald)' : 'var(--red)'}">${d.value > 0 ? '+' : ''}${d.value}</span>`).join('')}
+        </div>
+        <div style="font-size:11.5px;color:var(--text-faint);margin-top:12px">${t('estVo2')}: <b>${fa.vo2} ml/kg/min</b> — ${t('vo2Note')}</div>
+      </div>`
+      : `<div class="card">${emptyState('gauge', t('fitnessAge'), t('needProfile'))}</div>`;
+
+    const zoneBlock = zones ? `
+      <div class="card">
+        <div class="card-title">${t('hrZones')}</div><div class="card-sub">${t('hrZonesSub')} · HRmax ${zones.hrmax} · RHR ${zones.rhr}</div>
+        ${zones.bands.map(z => {
+          const w = (z.to - z.from) / (zones.hrmax - zones.bands[0].from) * 100;
+          return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <span style="width:110px;font-size:12.5px;font-weight:600">${t(z.key)}</span>
+            <div class="progress" style="flex:1"><div class="progress-fill" style="width:${Math.max(10, w)}%;background:${z.color}"></div></div>
+            <span style="width:80px;text-align:right;font-size:12.5px;color:var(--text-soft)">${z.from}–${z.to}</span>
+          </div>`;
+        }).join('')}
+      </div>`
+      : `<div class="card">${emptyState('heart', t('hrZones'), t('needRhr'))}</div>`;
+
+    return `
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title"><h1>${t('navHealth')}</h1><p>${t('healthSub')}</p></div>
+        <div class="actions"><button class="btn btn-primary" id="btnAddWell2">${ic('plus')} ${t('addWellness')}</button></div>
+      </div>
+
+      <div class="grid grid-stats">
+        ${statCard(t('rhrLbl'), rhr ? `${rhr.value}<small> ${t('bpm')}</small>` : '—', rhr ? fmtDateShort(rhr.date) : '', 'delta-neutral', 'heart', 'ico-blue')}
+        ${statCard(t('hrvLbl'), hrv ? `${hrv.value}<small> ${t('ms')}</small>` : '—', hrv ? fmtDateShort(hrv.date) : '', 'delta-neutral', 'activity', 'ico-purple')}
+        ${statCard(t('estVo2'), fa ? `${fa.vo2}<small> ml/kg</small>` : '—', 'Jackson 1990', 'delta-neutral', 'gauge', 'ico-emerald')}
+        ${statCard(t('fitnessAge'), fa ? fa.fitnessAge : '—', fa ? `${fa.delta > 0 ? '+' : ''}${fa.delta} vs ${fa.age}` : '', fa && fa.delta <= 0 ? 'delta-down' : 'delta-neutral', 'flame', 'ico-amber')}
+      </div>
+
+      <div class="grid grid-2 mt">
+        ${faBlock}
+        ${zoneBlock}
+        <div class="card"><div class="card-title">${t('rhrHistory')}</div>
+          <div class="chart-wrap"><canvas id="chRhrHist"></canvas></div></div>
+        <div class="card"><div class="card-title">${t('hrvHistory')}</div>
+          <div class="chart-wrap"><canvas id="chHrvHist"></canvas></div></div>
+      </div>
+    </div>`;
+  },
+
+  saluteMount() {
+    $('#btnAddWell2').onclick = () => wellnessForm();
+    const days = Wellness.days();
+    if (!days.length) return;
+
+    const mk = (id, field, color, unit) => Charts.make(id, {
+      type: 'line',
+      data: {
+        labels: days.map(fmtDateShort),
+        datasets: [{ label: unit, data: days.map(d => Wellness.get(d)?.[field] ?? null), borderColor: color, backgroundColor: Charts.gradient(id, color), fill: true, tension: .3, pointRadius: 2, borderWidth: 2, spanGaps: true }],
+      },
+      options: Charts.baseOpts(),
+    });
+    mk('chRhrHist', 'rhr', Charts.colors.blue, t('rhrLbl') + ' (' + t('bpm') + ')');
+    mk('chHrvHist', 'hrv', Charts.colors.purple, t('hrvLbl') + ' (' + t('ms') + ')');
   },
 
   /* ------------------------------------------------ CALENDARIO */
@@ -2288,6 +2676,28 @@ const Fitbit = {
         });
       }
 
+      // --- Sonno, HRV, FC a riposo (ultimi 30 giorni) → wellness ---
+      const wStart = daysAgo(29), wEnd = todayISO();
+      const well = Store.data.wellness;
+      const put = (date, field, val) => { if (val == null) return; well[date] = well[date] || {}; well[date][field] = val; };
+      try {
+        const sj = await this.api(`/1.2/user/-/sleep/date/${wStart}/${wEnd}.json`);
+        (sj.sleep || []).filter(x => x.isMainSleep !== false).forEach(x => {
+          put(x.dateOfSleep, 'sleepMin', x.minutesAsleep);
+          const lv = x.levels?.summary;
+          if (lv?.deep) put(x.dateOfSleep, 'deepMin', lv.deep.minutes);
+          if (lv?.rem) put(x.dateOfSleep, 'remMin', lv.rem.minutes);
+        });
+      } catch { /* scope sonno assente: si prosegue */ }
+      try {
+        const hj = await this.api(`/1/user/-/hrv/date/${wStart}/${wEnd}.json`);
+        (hj.hrv || []).forEach(x => put(x.dateTime, 'hrv', round1(x.value?.dailyRmssd)));
+      } catch { }
+      try {
+        const rj = await this.api(`/1/user/-/activities/heart/date/${wStart}/${wEnd}.json`);
+        (rj['activities-heart'] || []).forEach(x => put(x.dateTime, 'rhr', x.value?.restingHeartRate ?? null));
+      } catch { }
+
       // --- Attività → allenamenti ---
       const after = daysAgo(90);
       const j = await this.api(`/1/user/-/activities/list.json?afterDate=${after}&sort=asc&offset=0&limit=100`);
@@ -2353,7 +2763,7 @@ function settingsForm(user) {
 
       <div style="font-weight:700;font-size:13.5px;margin-bottom:4px">Fitbit
         <span class="badge ${Fitbit.connected() ? 'badge-emerald' : 'badge-red'}" style="margin-left:6px">${Fitbit.connected() ? t('fbConnected') : t('fbNotConnected')}</span></div>
-      <div style="font-size:12.5px;color:var(--text-soft);margin-bottom:10px;line-height:1.5">${t('fbHint')}</div>
+      <div style="font-size:12.5px;color:var(--text-soft);margin-bottom:10px;line-height:1.5">${t('intFitbit')}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
         ${Fitbit.connected()
           ? `<button class="btn" id="stFbSync">${ic('swap')} ${t('fbSync')}</button>
@@ -2364,7 +2774,15 @@ function settingsForm(user) {
       <div style="font-weight:700;font-size:13.5px;margin-bottom:4px">${t('stGfit')}</div>
       <div style="font-size:12.5px;color:var(--text-soft);margin-bottom:10px;line-height:1.5">${t('gfitHint')}</div>
       <button class="btn" id="stGfitBtn">${ic('upload')} ${t('gfitImport')}</button>
-      <input type="file" id="stGfitFile" accept=".json,.csv,application/json,text/csv" hidden>`,
+      <input type="file" id="stGfitFile" accept=".json,.csv,application/json,text/csv" hidden>
+
+      <div style="font-weight:700;font-size:13.5px;margin:18px 0 4px">Zepp / Amazfit · CSV</div>
+      <div style="font-size:12.5px;color:var(--text-soft);margin-bottom:10px;line-height:1.5">${t('intZepp')}</div>
+      <button class="btn" id="stZeppBtn">${ic('upload')} ${t('zeppImport')}</button>
+      <input type="file" id="stZeppFile" accept=".csv,text/csv" hidden>
+
+      <div style="font-weight:700;font-size:13.5px;margin:18px 0 4px">Google Health Connect</div>
+      <div style="font-size:12.5px;color:var(--text-soft);line-height:1.5">${t('intHc')}</div>`,
     footer: `<button class="btn" onclick="Modal.close()">${t('cancel')}</button><button class="btn btn-primary" id="stSave">${t('save')}</button>`,
     onMount(root) {
       if (Fitbit.connected()) {
@@ -2374,6 +2792,13 @@ function settingsForm(user) {
         $('#stFbConn', root).onclick = () => Fitbit.connect();
       }
       $('#stGfitBtn', root).onclick = () => $('#stGfitFile', root).click();
+      $('#stZeppBtn', root).onclick = () => $('#stZeppFile', root).click();
+      $('#stZeppFile', root).onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        Modal.close();
+        importWellnessCSV(file);
+      };
       $('#stGfitFile', root).onchange = e => {
         const file = e.target.files[0];
         if (!file) return;
@@ -2694,7 +3119,7 @@ function initNav() {
 /* =====================================================================
    ROUTER / BOOT
    ===================================================================== */
-const PAGE_NAMES = ['dashboard', 'misure', 'allenamento', 'alimentazione', 'calendario', 'progressi'];
+const PAGE_NAMES = ['dashboard', 'misure', 'allenamento', 'alimentazione', 'riposo', 'salute', 'calendario', 'progressi'];
 const State = { page: 'dashboard', foodDate: todayISO(), range: 0, calMonth: todayISO().slice(0, 7) };
 
 const Router = {
@@ -2723,6 +3148,8 @@ const Router = {
     if (p === 'misure') Pages.misureMount();
     if (p === 'allenamento') Pages.allenamentoMount();
     if (p === 'alimentazione') Pages.alimentazioneMount();
+    if (p === 'riposo') Pages.riposoMount();
+    if (p === 'salute') Pages.saluteMount();
     if (p === 'calendario') Pages.calendarioMount();
     if (p === 'progressi') Pages.progressiMount();
 
