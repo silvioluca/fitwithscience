@@ -1039,6 +1039,17 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .cmp-label { color: var(--text-soft); }
 .cmp-delta { font-weight: 700; text-align: right; }
 
+/* Selezione alimenti per creare un piatto: click sulla riga = evidenzia */
+.meal-card .list-row[data-mid] { transition: background .15s, box-shadow .15s; }
+.meal-card.sel-mode .list-row[data-mid] { cursor: pointer; }
+.meal-card.sel-mode .list-row[data-mid]:hover { background: var(--surface-2); }
+.meal-card .list-row.msel-on {
+  background: var(--emerald-soft);
+  box-shadow: inset 3px 0 0 var(--emerald);
+}
+.dish-make-bar { display: none; justify-content: flex-end; padding-top: 12px; }
+.meal-card.sel-mode .dish-make-bar { display: flex; }
+
 /* Condivisione */
 .share-pre {
   background: var(--surface-2);

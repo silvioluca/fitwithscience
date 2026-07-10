@@ -217,4 +217,8 @@ window.FWS_I18N.it = {
   tipZones: "Zone dalla riserva cardiaca (Karvonen): (HRmax − RHR) × % + RHR.",
   tipGirths: "Vita, petto e braccio: le tre circonferenze più indicative dei progressi.",
   tipImprove: "Confronto primo ↔ ultimo rilevamento del periodo; verde = direzione giusta.",
+  createDish: 'Crea piatto', dishName: 'Nome piatto', ingredients: 'Ingredienti',
+  addIngredient: 'Aggiungi ingrediente', ingPh: 'Cerca alimento…',
+  dishSaved: '"{0}" salvato nel database alimenti', minOneIng: 'Serve almeno un ingrediente con grammatura',
+  dishTotal: 'Totale piatto', per100Vals: 'Valori per 100 g',
 };

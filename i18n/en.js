@@ -217,4 +217,8 @@ window.FWS_I18N.en = {
   tipZones: "Zones from heart-rate reserve (Karvonen): (HRmax − RHR) × % + RHR.",
   tipGirths: "Waist, chest and arm: the three most progress-telling girths.",
   tipImprove: "First ↔ last record comparison for the period; green = right direction.",
+  createDish: 'Create dish', dishName: 'Dish name', ingredients: 'Ingredients',
+  addIngredient: 'Add ingredient', ingPh: 'Search food…',
+  dishSaved: '"{0}" saved to the food database', minOneIng: 'At least one ingredient with grams is required',
+  dishTotal: 'Dish total', per100Vals: 'Values per 100 g',
 };

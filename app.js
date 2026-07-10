@@ -145,6 +145,8 @@ const ICONS = {
   heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  layers: '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+  dish: '<path d="M7 21h10"/><path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z"/><path d="M11.38 12a2.4 2.4 0 0 1-.4-4.77 2.4 2.4 0 0 1 3.2-2.77 2.4 2.4 0 0 1 3.47-.63 2.4 2.4 0 0 1 3.37 3.37 2.4 2.4 0 0 1-1.1 3.7"/><path d="m13 12 4-4"/><path d="M10.9 7.25A4 4 0 0 0 4 10c0 .73.2 1.41.54 2"/>',
   share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>',
 };
 
@@ -1559,14 +1561,18 @@ const Pages = {
     const mealBlocks = MEAL_KEYS.map(mn => {
       const foods = meals.filter(m => m.meal === mn);
       const kcal = foods.reduce((tt, f) => tt + f.kcal, 0);
-      return `<div class="card mt">
+      return `<div class="card mt meal-card">
         <div class="card-head-row"><div><div class="card-title">${mealLabel(mn)}</div><div class="card-sub">${Math.round(kcal)} kcal</div></div>
-          <button class="btn btn-sm btn-primary" data-addfood="${mn}">${ic('plus')} ${t('foodItem')}</button></div>
-        ${foods.length ? foods.map(f => `<div class="list-row"><div class="list-ico ico-emerald">${ic('utensils')}</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            ${foods.length ? `<button class="btn-icon" data-dishsel="${mn}" title="${t('createDish')}">${ic('dish')}</button>` : ''}
+            <button class="btn btn-sm btn-primary" data-addfood="${mn}">${ic('plus')} ${t('foodItem')}</button>
+          </div></div>
+        ${foods.length ? foods.map(f => `<div class="list-row" data-mid="${f.id}"><div class="list-ico ico-emerald">${ic('utensils')}</div>
           <div class="list-main"><b>${esc(f.name)}</b><span>${esc(f.qty)} · P ${f.protein}g · C ${f.carbs}g · G ${f.fat}g</span></div>
           <div class="list-end"><b>${Math.round(f.kcal)} kcal</b></div>
           <div class="td-actions"><button class="btn-icon" data-editfood="${f.id}">${ic('pencil')}</button><button class="btn-icon danger" data-delfood="${f.id}">${ic('trash')}</button></div>
         </div>`).join('') : `<div class="empty-state" style="padding:18px"><p>${t('noFood')}</p></div>`}
+        <div class="dish-make-bar"><button class="btn btn-sm btn-primary" data-dishmk="${mn}">${ic('dish')} ${t('createDish')} (<span class="msel-count">0</span>)</button></div>
       </div>`;
     }).join('');
 
@@ -1576,6 +1582,7 @@ const Pages = {
         <div class="page-title"><h1>${t('navFood')}</h1><p>${t('foodSub')}</p></div>
         <div class="actions">
           <div class="field" style="margin:0"><input type="date" id="foodDate" value="${date}" max="${todayISO()}" style="height:40px"></div>
+          <button class="btn" id="dishBtn">${ic('dish')} ${t('createDish')}</button>
           <button class="btn" id="foodShare">${ic('share')} ${t('shareDay')}</button>
         </div>
       </div>
@@ -1612,6 +1619,29 @@ const Pages = {
   alimentazioneMount() {
     $('#foodDate').onchange = e => { State.foodDate = e.target.value; Router.render(); };
     $('#foodShare').onclick = () => sharePeriodDialog(State.foodDate, true);
+    $('#dishBtn').onclick = () => dishForm();
+    // Selezione alimenti nella card pasto → piatto precompilato
+    $$('[data-dishsel]').forEach(b => b.onclick = () => {
+      const card = b.closest('.meal-card');
+      card.classList.toggle('sel-mode');
+      if (!card.classList.contains('sel-mode')) { // uscita: pulisce la selezione
+        $$('.list-row.msel-on', card).forEach(r => r.classList.remove('msel-on'));
+        $('.msel-count', card).textContent = 0;
+      }
+    });
+    $$('.meal-card .list-row[data-mid]').forEach(row => row.addEventListener('click', e => {
+      const card = row.closest('.meal-card');
+      if (!card.classList.contains('sel-mode')) return;
+      if (e.target.closest('.td-actions')) return; // modifica/elimina restano cliccabili
+      row.classList.toggle('msel-on');
+      $('.msel-count', card).textContent = $$('.list-row.msel-on', card).length;
+    }));
+    $$('[data-dishmk]').forEach(b => b.onclick = () => {
+      const card = b.closest('.meal-card');
+      const ids = $$('.list-row.msel-on', card).map(r => r.dataset.mid);
+      if (!ids.length) { Toast.show(t('minOneIng'), 'error'); return; }
+      dishForm(mealItemsFromIds(ids));
+    });
     $$('[data-addfood]').forEach(b => b.onclick = () => foodForm(null, b.dataset.addfood));
     $$('[data-editfood]').forEach(b => b.onclick = () => foodForm(Store.data.meals.find(m => m.id === b.dataset.editfood)));
     $$('[data-delfood]').forEach(b => b.onclick = () => confirmDialog(t('delFoodConfirm'), () => {
@@ -2647,6 +2677,160 @@ function calendarDayDialog(iso) {
       const btn = $('#cdShare', root);
       if (!btn) return;
       btn.onclick = () => sharePeriodDialog(iso, false); // toggle Giorno/Settimana
+    },
+  });
+}
+
+
+/* =====================================================================
+   CREA PIATTO — combina più alimenti con grammature; il risultato viene
+   salvato in customFoods con i valori per 100 g (usabile come alimento)
+   ===================================================================== */
+/* Converte voci del diario in ingredienti {fd, g} per dishForm.
+   Se l'alimento non è nel DB, i valori/100g si deducono dalla voce stessa. */
+function mealItemsFromIds(ids) {
+  return ids.map(id => {
+    const m = Store.data.meals.find(x => x.id === id);
+    if (!m) return null;
+    const gm = /\((\d+(?:[.,]\d+)?)\s*g\)/.exec(m.qty || '');
+    const g = gm ? parseFloat(gm[1].replace(',', '.')) : (parseFloat(m.qty) || 0);
+    let fd = findFood(m.name);
+    if (!fd) {
+      const base = g > 0 ? g : 100;
+      fd = {
+        name: m.name,
+        kcal: Math.round(m.kcal / base * 100),
+        protein: round1(m.protein / base * 100),
+        carbs: round1(m.carbs / base * 100),
+        fat: round1(m.fat / base * 100),
+      };
+    }
+    return { fd, g: g > 0 ? g : 100 };
+  }).filter(Boolean);
+}
+
+function dishForm(prefill = null) {
+  const rowFood = new Map(); // riga → alimento selezionato (per 100 g)
+
+  const rowHTML = () => `<div class="ex-block dish-row">
+    <div class="ex-row-top">
+      <div class="field fs-wrap"><input class="dr-name" placeholder="${t('ingPh')}" autocomplete="off">
+        <div class="fs-list dr-list"></div></div>
+      <div class="field" style="max-width:110px"><input type="number" min="0" class="dr-grams" placeholder="g"></div>
+      <button type="button" class="btn-icon danger dr-del" title="${t('del')}">${ic('trash')}</button>
+    </div>
+  </div>`;
+
+  Modal.open({
+    title: t('createDish'), wide: true,
+    body: `
+      <div class="field"><label>${t('dishName')} *</label><input id="dishName" data-req placeholder="${t('phFood')}"><div class="err-msg">${t('required')}</div></div>
+      <div style="margin:16px 0 10px;font-weight:700;font-size:14px">${t('ingredients')}</div>
+      <div id="dishRows">${(prefill?.length ? prefill : [null]).map(() => rowHTML()).join('')}</div>
+      <button type="button" class="btn btn-sm" id="dishAdd">${ic('plus')} ${t('addIngredient')}</button>
+      <div id="dishTotals" style="margin-top:16px;font-size:13px"></div>`,
+    footer: `<button class="btn" onclick="Modal.close()">${t('cancel')}</button><button class="btn btn-primary" id="dishSave">${t('save')}</button>`,
+    onMount(root) {
+      const totalsEl = $('#dishTotals', root);
+
+      const collect = () => {
+        const items = [];
+        $$('.dish-row', root).forEach(row => {
+          const fd = rowFood.get(row);
+          const g = Number($('.dr-grams', row).value);
+          if (fd && g > 0) items.push({ fd, g });
+        });
+        return items;
+      };
+
+      const recalc = () => {
+        const items = collect();
+        if (!items.length) { totalsEl.innerHTML = ''; return; }
+        const tot = items.reduce((a, x) => ({
+          g: a.g + x.g,
+          kcal: a.kcal + x.fd.kcal * x.g / 100,
+          p: a.p + x.fd.protein * x.g / 100,
+          c: a.c + x.fd.carbs * x.g / 100,
+          f: a.f + x.fd.fat * x.g / 100,
+        }), { g: 0, kcal: 0, p: 0, c: 0, f: 0 });
+        const per = k => round1(k / tot.g * 100);
+        totalsEl.innerHTML = `
+          <b>${t('dishTotal')}:</b> ${Math.round(tot.g)} g · ${Math.round(tot.kcal)} kcal ·
+          P ${round1(tot.p)}g · C ${round1(tot.c)}g · G ${round1(tot.f)}g<br>
+          <span style="color:var(--text-soft)"><b>${t('per100Vals')}:</b>
+          ${per(tot.kcal)} kcal · P ${per(tot.p)}g · C ${per(tot.c)}g · G ${per(tot.f)}g</span>`;
+      };
+
+      const bindRow = row => {
+        const inp = $('.dr-name', row), list = $('.dr-list', row), grams = $('.dr-grams', row);
+        inp.oninput = () => {
+          rowFood.delete(row); recalc();
+          const q = inp.value.trim().toLowerCase();
+          if (q.length < 2) { list.classList.remove('open'); return; }
+          const matches = allFoods().filter(fd => fd.name.toLowerCase().includes(q)).slice(0, 8);
+          if (!matches.length) { list.classList.remove('open'); return; }
+          list.innerHTML = matches.map((fd, i) =>
+            `<button type="button" class="fs-item" data-i="${i}"><span>${esc(fd.name)}</span><small>${fd.kcal} kcal ${t('per100')}</small></button>`).join('');
+          list.classList.add('open');
+          $$('.fs-item', list).forEach(b => b.onclick = () => {
+            const fd = matches[Number(b.dataset.i)];
+            rowFood.set(row, fd);
+            inp.value = fd.name;
+            list.classList.remove('open');
+            if (!grams.value) grams.value = Store.data.foodPrefs[fd.name.toLowerCase()] || 100;
+            recalc();
+          });
+        };
+        inp.onblur = () => setTimeout(() => list.classList.remove('open'), 200);
+        grams.oninput = recalc;
+        $('.dr-del', row).onclick = () => {
+          if ($$('.dish-row', root).length === 1) return;
+          rowFood.delete(row);
+          row.remove();
+          recalc();
+        };
+      };
+
+      $$('.dish-row', root).forEach(bindRow);
+      if (prefill?.length) {
+        $$('.dish-row', root).forEach((row, i) => {
+          const it = prefill[i];
+          if (!it) return;
+          rowFood.set(row, it.fd);
+          $('.dr-name', row).value = it.fd.name;
+          $('.dr-grams', row).value = it.g;
+        });
+        recalc();
+      }
+      $('#dishAdd', root).onclick = () => {
+        $('#dishRows', root).insertAdjacentHTML('beforeend', rowHTML());
+        bindRow($('#dishRows', root).lastElementChild);
+      };
+
+      $('#dishSave', root).onclick = () => {
+        if (!validateForm(root)) { Toast.show(t('reqFields'), 'error'); return; }
+        const items = collect();
+        if (!items.length) { Toast.show(t('minOneIng'), 'error'); return; }
+        const name = $('#dishName', root).value.trim();
+        const totG = items.reduce((a, x) => a + x.g, 0);
+        const sum = f => items.reduce((a, x) => a + x.fd[f] * x.g / 100, 0);
+        const entry = {
+          name,
+          kcal: Math.round(sum('kcal') / totG * 100),
+          protein: round1(sum('protein') / totG * 100),
+          carbs: round1(sum('carbs') / totG * 100),
+          fat: round1(sum('fat') / totG * 100),
+          isDish: true,
+          recipe: items.map(x => ({ name: x.fd.name, g: x.g })),
+        };
+        // upsert: se esiste già un alimento con lo stesso nome lo aggiorna
+        const i = Store.data.customFoods.findIndex(fd => fd.name.toLowerCase() === name.toLowerCase());
+        if (i >= 0) Store.data.customFoods[i] = entry; else Store.data.customFoods.push(entry);
+        Store.data.foodPrefs[name.toLowerCase()] = totG; // grammatura tipica = il piatto intero
+        Store.save();
+        Modal.close();
+        Toast.show(t('dishSaved', name));
+      };
     },
   });
 }
