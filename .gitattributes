@@ -1,0 +1,5 @@
+# Line ending normalizzati: LF ovunque (evita il ping-pong CRLF su Windows)
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

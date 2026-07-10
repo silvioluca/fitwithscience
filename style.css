@@ -48,6 +48,14 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* Scrollbar: sottili e coerenti col tema (chiaro/scuro) */
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+::-webkit-scrollbar-corner { background: transparent; }
+
 html { scroll-behavior: smooth; }
 
 body {
@@ -591,6 +599,8 @@ body.auth-locked .auth-screen { display: flex; }
 
 .stat-card > .info-tip { position: absolute; right: 16px; bottom: 16px; }
 .stat-card > .info-tip::after { bottom: calc(100% + 8px); right: -4px; }
+/* Le table-card hanno overflow:hidden → la bolla si apre verso il basso */
+.table-card > .info-tip.card-corner::after { bottom: auto; top: calc(100% + 8px); }
 
 @media (max-width: 600px) {
   /* il transform su hover creerebbe un containing-block per il tooltip fixed */
@@ -598,7 +608,8 @@ body.auth-locked .auth-screen { display: flex; }
   /* il selettore stat-card serve a battere in specificità la regola desktop
      (.stat-card > .info-tip::after) che altrimenti manterrebbe bottom:100% */
   .info-tip::after,
-  .stat-card > .info-tip::after {
+  .stat-card > .info-tip::after,
+  .table-card > .info-tip.card-corner::after {
     position: fixed;
     left: 16px; right: 16px;
     top: auto;
@@ -1038,6 +1049,14 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .cmp-grid .cmp-h { font-weight: 700; font-size: 11.5px; text-transform: uppercase; color: var(--text-faint); letter-spacing: .04em; }
 .cmp-label { color: var(--text-soft); }
 .cmp-delta { font-weight: 700; text-align: right; }
+
+/* Esploratore esercizi (sezione inline in Allenamento) */
+.expl-list { max-height: 340px; overflow-y: auto; }
+.expl-list .list-row { transition: background .15s, box-shadow .15s; }
+.expl-list .list-row.msel-on {
+  background: var(--emerald-soft);
+  box-shadow: inset 3px 0 0 var(--emerald);
+}
 
 /* Selezione alimenti per creare un piatto: click sulla riga = evidenzia */
 .meal-card .list-row[data-mid] { transition: background .15s, box-shadow .15s; }

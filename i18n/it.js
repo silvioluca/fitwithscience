@@ -221,4 +221,12 @@ window.FWS_I18N.it = {
   addIngredient: 'Aggiungi ingrediente', ingPh: 'Cerca alimento…',
   dishSaved: '"{0}" salvato nel database alimenti', minOneIng: 'Serve almeno un ingrediente con grammatura',
   dishTotal: 'Totale piatto', per100Vals: 'Valori per 100 g',
+  explTitle: 'Esploratore esercizi', explBtn: 'Esercizi', frontLbl: 'Fronte', backLbl: 'Retro',
+  useInWork: 'Usa in un nuovo allenamento', clickMuscle: 'Clicca un muscolo per filtrare',
+  explSub: 'Filtra per gruppo muscolare e aggiungi a un nuovo allenamento',
+  syncNewer: 'Dati aggiornati da un altro dispositivo',
+  nMeasNever: 'Registra la tua prima misurazione', nMeasOld: 'Ultima misurazione {0} giorni fa: aggiornala',
+  nLowReady: 'Readiness {0}/100: valuta un giorno leggero', nNewPr: 'Nuovo PR: {0} ({1} kg 1RM stimato)',
+  nLowProt: 'Ieri proteine basse: {0}/{1} g', nNothing: 'Tutto in ordine',
+  weeklyAvg: 'media settimanale oltre i 60 giorni',
 };

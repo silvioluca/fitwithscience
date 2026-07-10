@@ -221,4 +221,12 @@ window.FWS_I18N.en = {
   addIngredient: 'Add ingredient', ingPh: 'Search food…',
   dishSaved: '"{0}" saved to the food database', minOneIng: 'At least one ingredient with grams is required',
   dishTotal: 'Dish total', per100Vals: 'Values per 100 g',
+  explTitle: 'Exercise explorer', explBtn: 'Exercises', frontLbl: 'Front', backLbl: 'Back',
+  useInWork: 'Use in a new workout', clickMuscle: 'Click a muscle to filter',
+  explSub: 'Filter by muscle group and add to a new workout',
+  syncNewer: 'Data updated from another device',
+  nMeasNever: 'Log your first measurement', nMeasOld: 'Last measurement {0} days ago: update it',
+  nLowReady: 'Readiness {0}/100: consider an easy day', nNewPr: 'New PR: {0} ({1} kg est. 1RM)',
+  nLowProt: 'Low protein yesterday: {0}/{1} g', nNothing: 'All good',
+  weeklyAvg: 'weekly average beyond 60 days',
 };
