@@ -26,7 +26,7 @@ const Pages = {
         <div class="actions quick-actions">
           <button class="btn btn-primary" data-quick="misura">${ic('plus')} ${t('qMeasure')}</button>
           <button class="btn btn-blue" data-quick="workout">${ic('plus')} ${t('qWorkout')}</button>
-          <button class="btn" data-quick="pasto">${ic('plus')} ${t('qMeal')}</button>
+          <button class="btn btn-amber" data-quick="pasto">${ic('plus')} ${t('qMeal')}</button>
         </div>
       </div>
 
@@ -282,7 +282,7 @@ const Pages = {
         <div class="page-title"><h1>${t('navWork')}</h1><p>${t('workSub')}</p></div>
         <div class="actions">
           <button class="btn" id="btnTemplates">${ic('clipboard')} ${t('templates')} (${Store.data.templates.length})</button>
-          <button class="btn btn-primary" id="btnAddW">${ic('plus')} ${t('newWork')}</button>
+          <button class="btn btn-blue" id="btnAddW">${ic('plus')} ${t('newWork')}</button>
         </div>
       </div>
 
@@ -318,7 +318,7 @@ const Pages = {
         </div>
         <div class="expl-list" id="explList"></div>
         <div class="dish-make-bar" id="explBar" style="display:none">
-          <button type="button" class="btn btn-sm btn-primary" id="explMake">${ic('dumbbell')} ${t('newWork')} (<span id="explCount">0</span>)</button>
+          <button type="button" class="btn btn-sm btn-blue" id="explMake">${ic('dumbbell')} ${t('newWork')} (<span id="explCount">0</span>)</button>
         </div>
       </div>
     </div>`;
@@ -399,7 +399,7 @@ const Pages = {
         <div class="card-head-row"><div><div class="card-title">${mealLabel(mn)}</div><div class="card-sub">${Math.round(kcal)} kcal</div></div>
           <div style="display:flex;gap:8px;align-items:center">
             ${foods.length ? `<button class="btn-icon" data-dishsel="${mn}" title="${t('createDish')}">${ic('dish')}</button>` : ''}
-            <button class="btn btn-sm btn-primary" data-addfood="${mn}">${ic('plus')} ${t('foodItem')}</button>
+            <button class="btn btn-sm btn-amber" data-addfood="${mn}">${ic('plus')} ${t('foodItem')}</button>
           </div></div>
         ${foods.length ? foods.map(f => `<div class="list-row" data-mid="${f.id}"><div class="list-ico ico-emerald">${ic('utensils')}</div>
           <div class="list-main"><b>${esc(f.name)}</b><span>${esc(f.qty)} · P ${f.protein}g · C ${f.carbs}g · G ${f.fat}g</span></div>
@@ -417,7 +417,7 @@ const Pages = {
         <div class="field" style="margin:0 0 0 auto"><input type="date" id="foodDate" value="${date}" max="${todayISO()}" style="height:40px"></div>
         <div class="actions" style="margin-left:0">
           <button class="btn" id="dishBtn">${ic('dish')} ${t('createDish')}</button>
-          <button class="btn" id="foodShare">${ic('share')} ${t('shareDay')}</button>
+          <button class="btn btn-amber" id="foodAdd">${ic('plus')} ${t('qMeal')}</button>
         </div>
       </div>
 
@@ -447,6 +447,10 @@ const Pages = {
       </div>
 
       ${mealBlocks}
+
+      <div class="mt" style="display:flex;justify-content:center">
+        <button class="btn" id="foodShare" style="min-width:220px">${ic('share')} ${t('shareDay')}</button>
+      </div>
     </div>`;
   },
 
@@ -454,6 +458,7 @@ const Pages = {
     $('#foodDate').onchange = e => { State.foodDate = e.target.value; Router.render(); };
     $('#foodShare').onclick = () => sharePeriodDialog(State.foodDate, true);
     $('#dishBtn').onclick = () => dishForm();
+    $('#foodAdd').onclick = () => foodForm();
     // Selezione alimenti nella card pasto → piatto precompilato
     $$('[data-dishsel]').forEach(b => b.onclick = () => {
       const card = b.closest('.meal-card');

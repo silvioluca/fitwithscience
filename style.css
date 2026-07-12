@@ -474,6 +474,9 @@ body.auth-locked .auth-screen { display: flex; }
 .btn-blue { background: linear-gradient(135deg, var(--blue), #1d4ed8); border-color: transparent; color: #fff; }
 .btn-blue:hover { box-shadow: 0 6px 18px rgba(37,99,235,.35); }
 
+.btn-amber { background: linear-gradient(135deg, var(--amber), #d97706); border-color: transparent; color: #fff; }
+.btn-amber:hover { box-shadow: 0 6px 18px rgba(245,158,11,.35); }
+
 .btn-danger { background: var(--red); border-color: transparent; color: #fff; }
 .btn-ghost { background: transparent; border-color: transparent; box-shadow: none; }
 .btn-sm { height: 32px; padding: 0 14px; font-size: 12.5px; border-radius: 16px; }
@@ -1167,7 +1170,7 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .cal-marks { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-top: auto; }
 .cal-dot { width: 8px; height: 8px; border-radius: 50%; }
 .cal-dot.w { background: var(--blue); }
-.cal-dot.m { background: var(--emerald); }
+.cal-dot.m { background: var(--amber); } /* pasti = arancione, come i pulsanti */
 .cal-kcal { font-size: 10px; font-weight: 600; color: var(--text-soft); }
 .cal-legend { display: flex; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--text-soft); align-items: center; }
 .cal-legend .cal-dot { display: inline-block; margin-right: 5px; vertical-align: middle; }
@@ -1240,7 +1243,8 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 }
 
 @media (max-width: 768px) {
-  .content { padding: 18px 14px calc(84px + env(safe-area-inset-bottom)); }
+  /* spazio per bottom-nav + barra azioni flottante: l'ultimo contenuto resta raggiungibile */
+  .content { padding: 18px 14px calc(150px + env(safe-area-inset-bottom)); }
 
   /* Scrollando oltre l'header, le azioni della pagina flottano in basso */
   .page-head .actions.floating {

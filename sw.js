@@ -9,7 +9,7 @@
 
 'use strict';
 
-const VERSION = 'fws-v2';
+const VERSION = 'fws-v3';
 
 const ASSETS = [
   './',
@@ -73,21 +73,19 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Asset locali: stale-while-revalidate
+  // Asset locali: network-first — il codice nuovo arriva SUBITO a tutti i
+  // dispositivi (niente client che girano su JS vecchio); cache solo offline
   if (url.origin === location.origin) {
     e.respondWith(
-      caches.match(req).then(cached => {
-        const fresh = fetch(req)
-          .then(res => {
-            if (res.ok) {
-              const copy = res.clone(); // clone SUBITO: dopo il return il body è consumato
-              caches.open(VERSION).then(c => c.put(req, copy));
-            }
-            return res;
-          })
-          .catch(() => cached);
-        return cached || fresh;
-      })
+      fetch(req)
+        .then(res => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(VERSION).then(c => c.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req))
     );
     return;
   }
