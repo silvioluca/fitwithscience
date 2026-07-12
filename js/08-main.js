@@ -419,6 +419,19 @@ function initTheme() {
   };
 }
 
+/* Su mobile le azioni della pagina flottano in basso quando l'header
+   esce dallo schermo (chiamata su scroll/resize e dopo ogni render). */
+function floatingActionsTick() {
+  const head = $('#content .page-head');
+  const actions = head && $('.actions', head);
+  if (!actions) return;
+  // dashboard e filtri (chip) restano nell'header
+  if (actions.classList.contains('quick-actions') || actions.classList.contains('chip-row')) { actions.classList.remove('floating'); return; }
+  const mobile = window.innerWidth <= 768;
+  const out = head.getBoundingClientRect().bottom < 64; // sotto la topbar
+  actions.classList.toggle('floating', mobile && out);
+}
+
 function initNav() {
   $$('.nav-item, .bnav-item').forEach(n => n.addEventListener('click', e => { e.preventDefault(); Router.go(n.dataset.page); }));
   $('#menuBtn').onclick = () => { $('#sidebar').classList.add('open'); $('#sidebarOverlay').classList.add('show'); };
@@ -468,6 +481,7 @@ const Router = {
 
     $$('.nav-item, .bnav-item').forEach(n => n.classList.toggle('active', n.dataset.page === p));
     hydrateCardTips();
+    floatingActionsTick();
   },
 };
 
@@ -487,6 +501,9 @@ function startApp(user) {
   initProfileMenu(user);
   initGlobalSearch();
   initNotifications();
+
+  window.addEventListener('scroll', floatingActionsTick, { passive: true });
+  window.addEventListener('resize', floatingActionsTick);
 
   const h = location.hash.slice(1);
   if (PAGE_NAMES.includes(h)) State.page = h;

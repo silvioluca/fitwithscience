@@ -414,8 +414,8 @@ const Pages = {
     <div class="page">
       <div class="page-head">
         <div class="page-title"><h1>${t('navFood')}</h1><p>${t('foodSub')}</p></div>
-        <div class="actions">
-          <div class="field" style="margin:0"><input type="date" id="foodDate" value="${date}" max="${todayISO()}" style="height:40px"></div>
+        <div class="field" style="margin:0 0 0 auto"><input type="date" id="foodDate" value="${date}" max="${todayISO()}" style="height:40px"></div>
+        <div class="actions" style="margin-left:0">
           <button class="btn" id="dishBtn">${ic('dish')} ${t('createDish')}</button>
           <button class="btn" id="foodShare">${ic('share')} ${t('shareDay')}</button>
         </div>
