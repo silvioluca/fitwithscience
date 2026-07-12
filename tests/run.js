@@ -147,6 +147,72 @@ ok('share: durata in secondi per il plank', shareTxt.includes('3×60s'));
   ok('merge: updatedAt rigenerato', m.updatedAt > 200);
 }
 
+/* ---------- weightMA7 / estTdee / weeklySets / suggestNextLoad / corr ---------- */
+{
+  // media mobile: pesate a 1 giorno di distanza → media della finestra
+  Store.data.measurements = [
+    { id: 'a', date: daysAgo(2), weight: 84 },
+    { id: 'b', date: daysAgo(1), weight: 86 },
+    { id: 'c', date: daysAgo(0), weight: 85 },
+  ];
+  eq('weightMA7: media della finestra', Stats.weightMA7(), [84, 85, 85]);
+
+  // TDEE: 14 giorni a 2400 kcal, peso stabile → TDEE ≈ 2400
+  Store.data.meals = [];
+  for (let i = 0; i < 14; i++) Store.data.meals.push({ id: 'td' + i, date: daysAgo(i), meal: 'Pranzo', name: 'X', qty: '—', kcal: 2400, protein: 0, carbs: 0, fat: 0 });
+  Store.data.measurements = [
+    { id: 't1', date: daysAgo(13), weight: 85 },
+    { id: 't2', date: daysAgo(7), weight: 85 },
+    { id: 't3', date: daysAgo(0), weight: 85 },
+  ];
+  const td = Stats.estTdee();
+  ok('estTdee: presente con dati sufficienti', td != null);
+  eq('estTdee: peso stabile → TDEE = intake', td.tdee, 2400);
+  // deficit: −0.5 kg/settimana ≈ −550 kcal/giorno → TDEE ≈ intake + 550
+  Store.data.measurements = [
+    { id: 'u1', date: daysAgo(14), weight: 86 },
+    { id: 'u2', date: daysAgo(0), weight: 85 },
+  ];
+  const td2 = Stats.estTdee();
+  ok('estTdee: in deficit TDEE > intake', td2.tdee > 2800 && td2.tdee < 3050);
+
+  // dati insufficienti → null
+  Store.data.meals = Store.data.meals.slice(0, 5);
+  eq('estTdee: pochi giorni → null', Stats.estTdee(), null);
+
+  // serie settimanali per gruppo
+  Store.data.workouts = [
+    { id: 'ws1', date: daysAgo(1), name: 'A', group: 'Upper Body', duration: 60, exercises: [
+      { id: 'e1', name: 'Panca', group: 'Petto', mode: 'reps', sets: 4, reps: 8, weight: 60, rest: 90, rpe: 8 },
+      { id: 'e2', name: 'Croci', group: 'Petto', mode: 'reps', sets: 3, reps: 12, weight: 14, rest: 60, rpe: 8 },
+    ] },
+    { id: 'ws2', date: daysAgo(20), name: 'B', group: 'Upper Body', duration: 60, exercises: [
+      { id: 'e3', name: 'Panca', group: 'Petto', mode: 'reps', sets: 5, reps: 5, weight: 70, rest: 120, rpe: 8 },
+    ] },
+  ];
+  eq('weeklySets: solo ultimi 7 giorni', Stats.weeklySetsByGroup().Petto, 7);
+
+  // suggerimento carico
+  eq('suggest: RPE 8 → +2.5', Stats.suggestNextLoad({ mode: 'reps', weight: 60, rpe: 8 }).weight, 62.5);
+  eq('suggest: RPE 9 → ripeti', Stats.suggestNextLoad({ mode: 'reps', weight: 60, rpe: 9 }).kind, 'repeat');
+  eq('suggest: RPE 10 → scendi', Stats.suggestNextLoad({ mode: 'reps', weight: 60, rpe: 10 }).weight, 57.5);
+  eq('suggest: durata → null', Stats.suggestNextLoad({ mode: 'time', weight: 0, rpe: 8 }), null);
+  eq('lastExercisePerf: prende la più recente', Stats.lastExercisePerf('panca').weight, 60);
+
+  // correlazione: volume ieri alto → readiness oggi bassa (r negativa)
+  Store.data.wellness = {};
+  Store.data.workouts = [];
+  for (let i = 1; i <= 8; i++) {
+    const vol = i * 500;
+    Store.data.workouts.push({ id: 'cv' + i, date: daysAgo(i * 2 + 1), name: 'W', group: 'X', duration: 60,
+      exercises: [{ id: 'ce' + i, name: 'Squat', group: 'Gambe', mode: 'reps', sets: 5, reps: 10, weight: vol / 50, rest: 90, rpe: 8 }] });
+    Store.data.wellness[daysAgo(i * 2)] = { rhr: 50, hrv: 60, sleepMin: 480 - i * 20, deepMin: 90, remMin: 90 };
+  }
+  const { pts, r } = corrVolumeReadiness();
+  ok('corr: abbastanza punti', pts.length >= 5);
+  ok('corr: r negativa attesa', r != null && r < 0);
+}
+
 /* ---------- esito ---------- */
 console.log(`\n${pass} passati, ${fail} falliti`);
 process.exit(fail ? 1 : 0);

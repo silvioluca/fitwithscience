@@ -147,6 +147,68 @@ const Wellness = {
   },
 };
 
+/* Insight settimanali rule-based: 2-4 osservazioni dai dati reali */
+function buildInsights() {
+  const items = [];
+  const g = Store.data.goals;
+
+  const week = Stats.weekWorkouts();
+  if (week.length >= g.weeklyWorkouts) items.push({ icon: 'dumbbell', text: t('insGoalHit', week.length, g.weeklyWorkouts) });
+  else items.push({ icon: 'dumbbell', text: t('insGoalMiss', week.length, g.weeklyWorkouts), warn: true });
+
+  let lowProt = 0, logged = 0;
+  for (let i = 1; i <= 7; i++) {
+    const d = daysAgo(i);
+    if (!Stats.mealsFor(d).length) continue;
+    logged++;
+    if (Stats.dayMacros(d).protein < g.protein * 0.8) lowProt++;
+  }
+  if (logged >= 3 && lowProt >= 3) items.push({ icon: 'activity', text: t('insProt', lowProt), warn: true });
+
+  const lastCardio = Stats.sortedWorkouts().find(w => w.exercises.some(e => e.group === 'Cardio') || w.group === 'Cardio');
+  const cardioDays = lastCardio ? Math.round((new Date(todayISO()) - new Date(lastCardio.date)) / 86400000) : null;
+  if (cardioDays === null || cardioDays >= 14) items.push({ icon: 'heart', text: t('insCardio', cardioDays ?? 14), warn: true });
+
+  const sleepVals = [...Array(7)].map((_, i) => Wellness.get(daysAgo(i))?.sleepMin).filter(v => v != null);
+  if (sleepVals.length >= 4) {
+    const avgH = round1(sleepVals.reduce((a, b) => a + b, 0) / sleepVals.length / 60);
+    if (avgH < 7) items.push({ icon: 'moon', text: t('insSleep', avgH), warn: true });
+  }
+
+  const vol = (from, to) => Store.data.workouts.filter(w => w.date >= from && w.date <= to)
+    .reduce((a, w) => a + Stats.workoutVolume(w), 0);
+  const cur = vol(daysAgo(6), todayISO()), prev = vol(daysAgo(13), daysAgo(7));
+  if (prev > 0 && cur > 0) {
+    const pct = Math.round((cur / prev - 1) * 100);
+    if (pct >= 20) items.push({ icon: 'trending', text: t('insVolUp', pct) });
+    else if (pct <= -20) items.push({ icon: 'trending', text: t('insVolDown', Math.abs(pct)), warn: true });
+  }
+
+  if (!items.some(i => i.warn) && items.length <= 1) items.push({ icon: 'check', text: t('insAllGood') });
+  return items.slice(0, 4);
+}
+
+/* Correlazione Pearson: readiness del giorno vs volume del giorno prima */
+function corrVolumeReadiness() {
+  const pts = [];
+  Wellness.days().forEach(d => {
+    const r = Wellness.readiness(d);
+    if (r == null) return;
+    const prev = new Date(d + 'T00:00'); prev.setDate(prev.getDate() - 1);
+    const pd = isoOf(prev);
+    const vol = Store.data.workouts.filter(w => w.date === pd).reduce((a, w) => a + Stats.workoutVolume(w), 0);
+    if (vol > 0) pts.push({ x: Math.round(vol), y: r });
+  });
+  if (pts.length < 5) return { pts, r: null };
+  const n = pts.length;
+  const sx = pts.reduce((a, p) => a + p.x, 0), sy = pts.reduce((a, p) => a + p.y, 0);
+  const sxy = pts.reduce((a, p) => a + p.x * p.y, 0);
+  const sxx = pts.reduce((a, p) => a + p.x * p.x, 0), syy = pts.reduce((a, p) => a + p.y * p.y, 0);
+  const den = Math.sqrt((n * sxx - sx * sx) * (n * syy - sy * sy));
+  const r = den ? round1((n * sxy - sx * sy) / den * 100) / 100 : null;
+  return { pts, r };
+}
+
 /* Form inserimento manuale dati benessere */
 function wellnessForm(date = todayISO()) {
   const w = Wellness.get(date) || {};

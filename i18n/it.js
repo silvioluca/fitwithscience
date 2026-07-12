@@ -229,4 +229,34 @@ window.FWS_I18N.it = {
   nLowReady: 'Readiness {0}/100: valuta un giorno leggero', nNewPr: 'Nuovo PR: {0} ({1} kg 1RM stimato)',
   nLowProt: 'Ieri proteine basse: {0}/{1} g', nNothing: 'Tutto in ordine',
   weeklyAvg: 'media settimanale oltre i 60 giorni',
+  // Storico esercizio / suggerimento carico
+  exHist: '{0} — storico', bestSet: 'Peso max', est1rm: '1RM stimato',
+  noExData: 'Nessuna sessione registrata con questo esercizio.',
+  lastTime: 'Ultima: {0}×{1} @ {2} kg (RPE {3})', tryNext: '→ prova {0} kg',
+  tryRepeat: '→ ripeti il carico', tryLess: '→ scendi a {0} kg',
+  // Peso / TDEE
+  ma7: 'Media 7 giorni', tdeeLbl: 'TDEE stimato', tdeeSub: 'da {0} giorni loggati · peso {1} kg/sett',
+  tdeeNeed: 'Servono ≥10 giorni loggati e ≥2 pesate su 7+ giorni',
+  tipTdee: 'Spesa energetica reale: kcal medie mangiate − energia della variazione di peso (7700 kcal/kg). Più affidabile di qualsiasi formula.',
+  // Serie settimanali
+  weeklySets: 'Serie settimanali per gruppo', weeklySetsSub: 'Ultimi 7 giorni · fascia consigliata 10–20 serie/muscolo',
+  tipWeeklySets: 'Serie allenanti per gruppo negli ultimi 7 giorni. 10–20 è la fascia con più evidenza per l\'ipertrofia.',
+  setsUnit: 'serie',
+  // Insight
+  insTitle: 'Insight della settimana', insSub: 'Generati dai tuoi dati degli ultimi 7 giorni',
+  insGoalHit: 'Obiettivo allenamenti raggiunto: {0}/{1}', insGoalMiss: 'Allenamenti {0}/{1}: ne manca qualcuno',
+  insProt: 'Proteine sotto l\'80% dell\'obiettivo in {0} giorni su 7',
+  insCardio: 'Nessuna sessione cardio da {0}+ giorni', insSleep: 'Sonno medio {0} h: sotto le 7 ore',
+  insVolUp: 'Volume +{0}% rispetto alla settimana scorsa', insVolDown: 'Volume −{0}% rispetto alla settimana scorsa',
+  insAllGood: 'Settimana regolare: continua così',
+  // Correlazioni
+  corrTitle: 'Volume ↔ Readiness', corrSub: 'Readiness del giorno vs volume allenato il giorno precedente',
+  corrR: 'correlazione r = {0} · {1} giorni', corrFew: 'Servono almeno 5 giorni con readiness e un allenamento il giorno prima.',
+  tipCorr: 'Ogni punto è un giorno: se i punti scendono verso destra, i giorni dopo tanto volume ti trovano meno recuperato.',
+  // Sessione live
+  liveStart: 'Avvia sessione', liveResume: 'Riprendi sessione', liveTitle: 'Sessione live',
+  liveElapsed: 'Durata', liveRestLbl: 'Recupero', liveFinish: 'Termina e salva',
+  liveEmpty: 'Sessione vuota', liveFromTpl: 'Da modello', liveDone: 'Sessione salvata: {0} min',
+  livePr: 'Nuovo PR: {0}!', liveDiscard: 'Scarta', liveNoSets: 'Nessuna serie completata',
+  liveSetOf: 'serie {0}/{1}',
 };

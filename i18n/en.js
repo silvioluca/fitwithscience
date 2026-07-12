@@ -229,4 +229,34 @@ window.FWS_I18N.en = {
   nLowReady: 'Readiness {0}/100: consider an easy day', nNewPr: 'New PR: {0} ({1} kg est. 1RM)',
   nLowProt: 'Low protein yesterday: {0}/{1} g', nNothing: 'All good',
   weeklyAvg: 'weekly average beyond 60 days',
+  // Exercise history / load suggestion
+  exHist: '{0} — history', bestSet: 'Top weight', est1rm: 'Est. 1RM',
+  noExData: 'No logged sessions with this exercise.',
+  lastTime: 'Last: {0}×{1} @ {2} kg (RPE {3})', tryNext: '→ try {0} kg',
+  tryRepeat: '→ repeat the load', tryLess: '→ drop to {0} kg',
+  // Weight / TDEE
+  ma7: '7-day average', tdeeLbl: 'Estimated TDEE', tdeeSub: 'from {0} logged days · weight {1} kg/wk',
+  tdeeNeed: 'Needs ≥10 logged days and ≥2 weigh-ins spanning 7+ days',
+  tipTdee: 'Real energy expenditure: average kcal eaten − energy of the weight change (7700 kcal/kg). More reliable than any formula.',
+  // Weekly sets
+  weeklySets: 'Weekly sets per muscle group', weeklySetsSub: 'Last 7 days · recommended range 10–20 sets/muscle',
+  tipWeeklySets: 'Working sets per group over the last 7 days. 10–20 is the best-evidence hypertrophy range.',
+  setsUnit: 'sets',
+  // Insights
+  insTitle: 'Weekly insights', insSub: 'Generated from your last 7 days of data',
+  insGoalHit: 'Workout goal reached: {0}/{1}', insGoalMiss: 'Workouts {0}/{1}: a few missing',
+  insProt: 'Protein under 80% of goal on {0} of 7 days',
+  insCardio: 'No cardio session for {0}+ days', insSleep: 'Average sleep {0} h: below 7 hours',
+  insVolUp: 'Volume +{0}% vs last week', insVolDown: 'Volume −{0}% vs last week',
+  insAllGood: 'Steady week: keep it up',
+  // Correlations
+  corrTitle: 'Volume ↔ Readiness', corrSub: "Day's readiness vs previous day's training volume",
+  corrR: 'correlation r = {0} · {1} days', corrFew: 'Needs at least 5 days with readiness and a workout the day before.',
+  tipCorr: 'Each point is a day: if points fall to the right, high-volume days leave you less recovered.',
+  // Live session
+  liveStart: 'Start session', liveResume: 'Resume session', liveTitle: 'Live session',
+  liveElapsed: 'Elapsed', liveRestLbl: 'Rest', liveFinish: 'Finish & save',
+  liveEmpty: 'Empty session', liveFromTpl: 'From template', liveDone: 'Session saved: {0} min',
+  livePr: 'New PR: {0}!', liveDiscard: 'Discard', liveNoSets: 'No sets completed',
+  liveSetOf: 'set {0}/{1}',
 };

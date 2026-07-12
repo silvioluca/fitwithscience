@@ -101,6 +101,7 @@ function exerciseBlockHTML(e = {}) {
       <button type="button" class="gpill gpill-more ${extraOpen ? 'active' : ''}">${t('moreGroups')}</button>
       <span class="gpill-extra" ${extraOpen ? '' : 'hidden'}>${extras.map(pill).join('')}</span>
     </div>
+    <div class="ex-hint" style="font-size:11.5px;color:var(--text-soft);margin:-2px 0 8px"></div>
     <div class="ex-grid">
       <div class="field"><label>${t('sets')} *</label>${stepperHTML('sets', e.sets ?? 3, 1, { min: 1, req: true })}</div>
       <div class="field"><label class="reps-label">${mode === 'time' ? t('durationS') : t('reps')} *</label>
@@ -160,10 +161,25 @@ function workoutForm(existing = null, fromTemplate = null) {
           $$('.gpill', bl).forEach(x => x.classList.toggle('active', x === b && !x.classList.contains('gpill-more')));
           $('[data-f="group"]', bl).value = b.dataset.g;
         });
+        // Suggerimento carico: ultima esecuzione + doppia progressione
+        const updateHint = bl => {
+          const el = $('.ex-hint', bl);
+          if (!el) return;
+          const name = $('[data-f="name"]', bl).value.trim();
+          const perf = name ? Stats.lastExercisePerf(name) : null;
+          if (!perf) { el.textContent = ''; return; }
+          const sug = Stats.suggestNextLoad(perf);
+          let txt = t('lastTime', perf.sets, perf.reps + (perf.mode === 'time' ? 's' : ''), perf.weight, perf.rpe);
+          if (sug) txt += ' ' + (sug.kind === 'more' ? t('tryNext', sug.weight) : sug.kind === 'repeat' ? t('tryRepeat') : t('tryLess', sug.weight));
+          el.textContent = txt;
+        };
+        $$('.ex-block', root).forEach(updateHint);
+
         // Autocomplete nome esercizio (DB locale + personalizzati)
         $$('.ex-name', root).forEach(inp => {
           const bl = inp.closest('.ex-block');
           const list = $('.ex-suggest', bl);
+          inp.addEventListener('change', () => updateHint(bl));
           inp.oninput = () => {
             const q = inp.value.trim().toLowerCase();
             if (q.length < 2) { list.classList.remove('open'); return; }
@@ -177,6 +193,7 @@ function workoutForm(existing = null, fromTemplate = null) {
               inp.value = x.name;
               setBlockGroup(bl, x.group); // compila anche la pill del gruppo
               list.classList.remove('open');
+              updateHint(bl);
             });
           };
           inp.onblur = () => setTimeout(() => list.classList.remove('open'), 200); // lascia il tempo al click
@@ -277,7 +294,7 @@ function initExerciseExplorer() {
     listEl.innerHTML = items.length ? items.map(x => `
       <div class="list-row ${selected.has(x.name) ? 'msel-on' : ''}">
         <div class="list-main" style="white-space:normal">
-          <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="display:inline">${esc(x.name)}</b><span class="badge badge-blue">${esc(gDisp(x.group))}</span></span>
+          <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="display:inline;cursor:pointer" data-hist="${esc(x.name)}" title="${t('exHist', esc(x.name))}">${esc(x.name)}</b><span class="badge badge-blue">${esc(gDisp(x.group))}</span></span>
           ${x.d ? `<span style="display:block;font-size:12px;color:var(--text-soft);margin-top:2px">${esc(x.d[Lang.lang] || x.d.it)}</span>` : ''}
         </div>
         <button type="button" class="btn-icon" data-use="${esc(x.name)}" title="${t('useInWork')}" style="margin-left:auto;flex-shrink:0${selected.has(x.name) ? ';color:var(--emerald);border-color:var(--emerald)' : ''}">${ic(selected.has(x.name) ? 'check' : 'plus')}</button>
@@ -290,6 +307,7 @@ function initExerciseExplorer() {
       syncBar();
       drawList();
     });
+    $$('[data-hist]', listEl).forEach(b => b.onclick = () => exerciseHistoryDialog(b.dataset.hist));
   };
 
   $$('#explPills .gpill').forEach(p => p.onclick = () => {
@@ -314,6 +332,207 @@ function initExerciseExplorer() {
   syncBar();
   drawList();
 }
+/* =====================================================================
+   STORICO ESERCIZIO — carico e 1RM stimato nel tempo per un esercizio
+   ===================================================================== */
+function exerciseHistoryDialog(name) {
+  const q = name.trim().toLowerCase();
+  const rows = [];
+  [...Store.data.workouts].sort((a, b) => a.date.localeCompare(b.date)).forEach(w => {
+    w.exercises.filter(e => e.name.toLowerCase() === q && e.mode !== 'time' && e.weight)
+      .forEach(e => rows.push({ date: w.date, sets: e.sets, reps: e.reps, weight: e.weight, orm: round1(e.weight * (1 + e.reps / 30)) }));
+  });
+
+  Modal.open({
+    title: t('exHist', name), wide: true,
+    body: rows.length ? `
+      <div class="chart-wrap short"><canvas id="chExHist"></canvas></div>
+      <div class="expl-list" style="margin-top:12px">
+        ${[...rows].reverse().map(r => `<div class="list-row">
+          <div class="list-main"><b style="display:inline">${fmtDate(r.date)}</b>
+            <span style="margin-left:8px;font-size:12.5px;color:var(--text-soft)">${r.sets}×${r.reps} @ ${r.weight} kg</span></div>
+          <div class="list-end"><b>${Math.round(r.orm)} kg</b>${t('est1rm')}</div>
+        </div>`).join('')}
+      </div>`
+      : emptyState('dumbbell', t('noExData'), ''),
+    onMount() {
+      if (!rows.length) return;
+      Charts.make('chExHist', {
+        type: 'line',
+        data: {
+          labels: rows.map(r => fmtDateShort(r.date)),
+          datasets: [
+            { label: t('bestSet') + ' (kg)', data: rows.map(r => r.weight), borderColor: Charts.colors.blue, tension: .3, pointRadius: 3, borderWidth: 2 },
+            { label: t('est1rm') + ' (kg)', data: rows.map(r => r.orm), borderColor: Charts.colors.emerald, borderDash: [6, 5], tension: .3, pointRadius: 2, borderWidth: 2 },
+          ],
+        },
+        options: Charts.baseOpts(),
+      });
+    },
+  });
+}
+
+/* =====================================================================
+   SESSIONE LIVE — spunti le serie, il timer di recupero parte da solo;
+   alla fine la sessione diventa un allenamento salvato (con PR detection)
+   ===================================================================== */
+let LIVE = null; // { startedAt, name, exs:[{name,group,reps,weight,rest,rpe,mode,total,done}], restEnd, iv }
+
+function liveStartDialog() {
+  const tpls = Store.data.templates;
+  Modal.open({
+    title: t('liveTitle'),
+    body: `
+      <div class="list-row">
+        <div class="list-ico ico-blue">${ic('plus')}</div>
+        <div class="list-main"><b>${t('liveEmpty')}</b></div>
+        <button class="btn btn-sm btn-blue" id="liveEmptyBtn" style="margin-left:auto">${t('liveStart')}</button>
+      </div>
+      ${tpls.map(tp => `<div class="list-row">
+        <div class="list-ico ico-blue">${ic('clipboard')}</div>
+        <div class="list-main"><b>${esc(tp.name)}</b><span>${tp.exercises.length} ${t('exercises')} · ${t('liveFromTpl')}</span></div>
+        <button class="btn btn-sm btn-blue" data-livetpl="${tp.id}" style="margin-left:auto">${t('liveStart')}</button>
+      </div>`).join('')}`,
+    onMount(root) {
+      $('#liveEmptyBtn', root).onclick = () => liveBegin(null);
+      $$('[data-livetpl]', root).forEach(b => b.onclick = () => liveBegin(tpls.find(x => x.id === b.dataset.livetpl)));
+    },
+  });
+}
+
+function liveBegin(tpl) {
+  LIVE = {
+    startedAt: Date.now(),
+    name: tpl ? tpl.name : '',
+    restEnd: 0,
+    exs: (tpl ? tpl.exercises : []).map(e => ({
+      name: e.name, group: e.group, reps: e.reps, weight: e.weight,
+      rest: e.rest || 90, rpe: e.rpe || 8, mode: e.mode === 'time' ? 'time' : 'reps',
+      total: e.sets, done: 0,
+    })),
+  };
+  Modal.close();
+  setTimeout(liveDialog, 300);
+}
+
+function liveDialog() {
+  if (!LIVE) return;
+  if (LIVE.iv) { clearInterval(LIVE.iv); LIVE.iv = null; }
+
+  Modal.open({
+    title: t('liveTitle'), wide: true,
+    body: `
+      <div style="display:flex;gap:20px;justify-content:center;margin-bottom:14px;text-align:center">
+        <div><div class="stat-label">${t('liveElapsed')}</div><div style="font-size:26px;font-weight:800" id="liveElapsed">0:00</div></div>
+        <div><div class="stat-label">${t('liveRestLbl')}</div><div style="font-size:26px;font-weight:800" id="liveRest">—</div></div>
+      </div>
+      <div id="liveExs"></div>
+      <div class="ex-row-top" style="margin-top:10px">
+        <div class="field"><input id="liveAddName" placeholder="${t('addExercise')}…"></div>
+        <button type="button" class="btn-icon" id="liveAddBtn">${ic('plus')}</button>
+      </div>`,
+    footer: `<button class="btn" id="liveDiscard" style="color:var(--red)">${ic('trash')} ${t('liveDiscard')}</button>
+      <button class="btn" onclick="Modal.close()">${t('close')}</button>
+      <button class="btn btn-blue" id="liveFinish">${ic('check')} ${t('liveFinish')}</button>`,
+    onMount(root) {
+      const box = $('#liveExs', root);
+
+      const draw = () => {
+        box.innerHTML = LIVE.exs.length ? LIVE.exs.map((e, i) => `
+          <div class="ex-block">
+            <div class="ex-row-top">
+              <div class="list-main" style="flex:1"><b style="display:inline">${esc(e.name)}</b>
+                <span style="margin-left:8px;font-size:12px;color:var(--text-soft)">${t('liveSetOf', e.done, e.total)}</span></div>
+              <button type="button" class="btn btn-sm btn-blue" data-set="${i}" ${e.done >= e.total ? 'disabled style="opacity:.45"' : ''}>${ic('check')} ${t('sets')}</button>
+            </div>
+            <div class="ex-grid">
+              <div class="field"><label>${e.mode === 'time' ? t('durationS') : t('reps')}</label><input type="number" min="1" data-reps="${i}" value="${e.reps}"></div>
+              <div class="field"><label>${t('weightKg')}</label><input type="number" step="0.5" min="0" data-w="${i}" value="${e.weight}"></div>
+              <div class="field"><label>${t('rest')}</label><input type="number" min="0" step="15" data-rest="${i}" value="${e.rest}"></div>
+            </div>
+          </div>`).join('') : `<div class="empty-state" style="padding:14px"><p>${t('addExercise')}</p></div>`;
+
+        $$('[data-set]', box).forEach(b => b.onclick = () => {
+          const e = LIVE.exs[Number(b.dataset.set)];
+          if (e.done >= e.total) return;
+          e.done++;
+          LIVE.restEnd = Date.now() + e.rest * 1000; // il recupero parte al set completato
+          if (navigator.vibrate) navigator.vibrate(30);
+          draw();
+        });
+        $$('[data-reps]', box).forEach(inp => inp.oninput = () => { LIVE.exs[Number(inp.dataset.reps)].reps = Number(inp.value) || 1; });
+        $$('[data-w]', box).forEach(inp => inp.oninput = () => { LIVE.exs[Number(inp.dataset.w)].weight = Number(inp.value) || 0; });
+        $$('[data-rest]', box).forEach(inp => inp.oninput = () => { LIVE.exs[Number(inp.dataset.rest)].rest = Number(inp.value) || 0; });
+      };
+      draw();
+
+      $('#liveAddBtn', root).onclick = () => {
+        const name = $('#liveAddName', root).value.trim();
+        if (!name) return;
+        const known = findExercise(name);
+        const perf = Stats.lastExercisePerf(name);
+        LIVE.exs.push({
+          name, group: known?.group || 'Altro',
+          reps: perf?.reps || 10, weight: perf?.weight || 0, rest: perf?.rest || 90,
+          rpe: perf?.rpe || 8, mode: perf?.mode === 'time' ? 'time' : 'reps', total: perf?.sets || 3, done: 0,
+        });
+        $('#liveAddName', root).value = '';
+        draw();
+      };
+
+      // timer: durata sessione + countdown recupero (vibra allo zero)
+      const tick = () => {
+        const el = $('#liveElapsed');
+        if (!el) { clearInterval(LIVE?.iv); return; } // modale chiusa
+        const s = Math.floor((Date.now() - LIVE.startedAt) / 1000);
+        el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+        const rest = $('#liveRest');
+        const left = Math.ceil((LIVE.restEnd - Date.now()) / 1000);
+        if (left > 0) { rest.textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0'); rest.style.color = 'var(--amber)'; }
+        else if (LIVE.restEnd && left > -2) { rest.textContent = '0:00'; rest.style.color = 'var(--emerald)'; if (left === 0 && navigator.vibrate) navigator.vibrate([80, 60, 80]); }
+        else { rest.textContent = '—'; rest.style.color = ''; }
+      };
+      LIVE.iv = setInterval(tick, 1000);
+      tick();
+
+      $('#liveDiscard', root).onclick = () => { clearInterval(LIVE.iv); LIVE = null; Modal.close(); Router.render(); };
+
+      $('#liveFinish', root).onclick = () => {
+        const done = LIVE.exs.filter(e => e.done > 0);
+        if (!done.length) { Toast.show(t('liveNoSets'), 'error'); return; }
+        // PR: confronta con i best PRIMA di salvare
+        const prevBest = {};
+        Stats.personalRecords().forEach(p => { prevBest[p.name.toLowerCase()] = p.orm; });
+
+        const duration = Math.max(1, Math.round((Date.now() - LIVE.startedAt) / 60000));
+        const rec = {
+          id: uid(), date: todayISO(),
+          name: LIVE.name || t('liveTitle'), group: 'Altro', duration, notes: '',
+          exercises: done.map(e => ({
+            id: uid(), name: e.name, group: e.group, mode: e.mode,
+            sets: e.done, reps: e.reps, weight: e.weight, rest: e.rest, rpe: e.rpe, notes: '',
+          })),
+        };
+        rec.exercises.forEach(e => {
+          if (e.name && !findExercise(e.name)) Store.data.customExercises.push({ name: e.name, group: e.group });
+        });
+        Store.data.workouts.push(rec);
+        Store.save();
+
+        const prs = rec.exercises.filter(e => e.mode !== 'time' && e.weight > 0 &&
+          e.weight * (1 + e.reps / 30) > (prevBest[e.name.toLowerCase()] || 0)).map(e => e.name);
+
+        clearInterval(LIVE.iv);
+        LIVE = null;
+        Modal.close();
+        Toast.show(t('liveDone', duration));
+        if (prs.length) setTimeout(() => Toast.show(t('livePr', prs.join(', '))), 800);
+        Router.render();
+      };
+    },
+  });
+}
+
 function templatesDialog() {
   const tpls = Store.data.templates;
   Modal.open({

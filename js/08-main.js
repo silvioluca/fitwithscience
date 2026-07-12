@@ -425,8 +425,8 @@ function floatingActionsTick() {
   const head = $('#content .page-head');
   const actions = head && $('.actions', head);
   if (!actions) return;
-  // dashboard e filtri (chip) restano nell'header
-  if (actions.classList.contains('quick-actions') || actions.classList.contains('chip-row')) { actions.classList.remove('floating'); return; }
+  // i filtri (chip) restano nell'header; le quick-actions ora flottano come FAB
+  if (actions.classList.contains('chip-row')) { actions.classList.remove('floating'); return; }
   const mobile = window.innerWidth <= 768;
   const out = head.getBoundingClientRect().bottom < 64; // sotto la topbar
   actions.classList.toggle('floating', mobile && out);

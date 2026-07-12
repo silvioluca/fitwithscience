@@ -24,9 +24,9 @@ const Pages = {
       <div class="page-head">
         <div class="page-title"><h1>${t('hi')}${p.firstName ? ', ' + esc(p.firstName) : ''}</h1><p>${t('overview')} ${fmtDate(todayISO())}</p></div>
         <div class="actions quick-actions">
-          <button class="btn btn-primary" data-quick="misura">${ic('plus')} ${t('qMeasure')}</button>
-          <button class="btn btn-blue" data-quick="workout">${ic('plus')} ${t('qWorkout')}</button>
-          <button class="btn btn-amber" data-quick="pasto">${ic('plus')} ${t('qMeal')}</button>
+          <button class="btn btn-primary" data-quick="misura">${ic('ruler')} ${t('qMeasure')}</button>
+          <button class="btn btn-amber" data-quick="pasto">${ic('utensils')} ${t('qMeal')}</button>
+          <button class="btn btn-blue act-break" data-quick="workout">${ic('dumbbell')} ${t('qWorkout')}</button>
         </div>
       </div>
 
@@ -39,6 +39,14 @@ const Pages = {
         ${statCard(t('workouts7'), `${week.length}<small> / ${goals.weeklyWorkouts}</small>`, `${weekMin} ${t('minTotal')}`, 'delta-neutral', 'dumbbell', 'ico-blue')}
         ${statCard(t('nextSession'), `<span style="font-size:15px">${esc(nextName)}</span>`, t('nextSub'), 'delta-neutral', 'calendar', 'ico-purple')}
         ${statCard(t('proteinToday'), `${Math.round(macros.protein)}<small> / ${goals.protein} g</small>`, `${Math.round(macros.protein / goals.protein * 100)}${t('ofGoal')}`, 'delta-good', 'activity', 'ico-amber')}
+      </div>
+
+      <div class="card mt">
+        <div class="card-title">${t('insTitle')}</div><div class="card-sub">${t('insSub')}</div>
+        ${buildInsights().map(n => `<div class="list-row">
+          <span style="color:${n.warn ? 'var(--amber)' : 'var(--emerald)'}">${ic(n.icon)}</span>
+          <span style="font-size:13.5px">${esc(n.text)}</span>
+        </div>`).join('')}
       </div>
 
       <div class="grid grid-2 mt">
@@ -85,6 +93,9 @@ const Pages = {
           label: t('weightKg'), data: ms.map(m => m.weight),
           borderColor: Charts.colors.emerald, backgroundColor: Charts.gradient('chWeight', Charts.colors.emerald),
           fill: true, tension: .35, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5,
+        }, {
+          label: t('ma7'), data: Stats.weightMA7(), // il trend vero: il peso giorno-per-giorno oscilla
+          borderColor: Charts.colors.blue, borderDash: [6, 5], pointRadius: 0, borderWidth: 2, tension: .35, fill: false,
         }],
       },
       options: Charts.baseOpts(),
@@ -132,7 +143,7 @@ const Pages = {
         <div class="page-title"><h1>${t('navMeas')}</h1><p>${t('measSub')}</p></div>
         <div class="actions">
           <button class="btn" id="btnCompare">${ic('swap')} ${t('cmpDates')}</button>
-          <button class="btn btn-primary" id="btnAddM">${ic('plus')} ${t('newMeas')}</button>
+          <button class="btn btn-primary" id="btnAddM">${ic('plus')} ${t('qMeasure')}</button>
         </div>
       </div>
 
@@ -282,7 +293,8 @@ const Pages = {
         <div class="page-title"><h1>${t('navWork')}</h1><p>${t('workSub')}</p></div>
         <div class="actions">
           <button class="btn" id="btnTemplates">${ic('clipboard')} ${t('templates')} (${Store.data.templates.length})</button>
-          <button class="btn btn-blue" id="btnAddW">${ic('plus')} ${t('newWork')}</button>
+          <button class="btn btn-blue" id="btnLive">${ic('clock')} ${typeof LIVE !== 'undefined' && LIVE ? t('liveResume') : t('liveStart')}</button>
+          <button class="btn btn-blue act-break" id="btnAddW">${ic('plus')} ${t('qWorkout')}</button>
         </div>
       </div>
 
@@ -298,6 +310,22 @@ const Pages = {
           <div class="chart-wrap"><canvas id="chWVol"></canvas></div></div>
         <div class="card"><div class="card-title">${t('muscleFreq')}</div><div class="card-sub">${t('setsPerGroup')}</div>
           <div class="chart-wrap"><canvas id="chWRadar"></canvas></div></div>
+        <div class="card"><div class="card-title">${t('weeklySets')}</div><div class="card-sub">${t('weeklySetsSub')}</div>
+          ${(() => {
+            const sets = Stats.weeklySetsByGroup();
+            const keys = Object.keys(sets).filter(k => k !== 'Cardio' && k !== 'Altro');
+            if (!keys.length) return emptyState('dumbbell', t('noWork'), t('noWorkP'));
+            return keys.sort((a, b) => sets[b] - sets[a]).map(k => {
+              const n = sets[k];
+              const color = n < 10 ? 'var(--amber)' : n <= 20 ? 'var(--emerald)' : 'var(--red)';
+              return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <span style="width:96px;font-size:12.5px;font-weight:600">${esc(gDisp(k))}</span>
+                <div class="progress" style="flex:1"><div class="progress-fill" style="width:${Math.min(100, n / 24 * 100)}%;background:${color}"></div></div>
+                <span style="width:60px;text-align:right;font-size:12.5px;color:var(--text-soft)">${n} ${t('setsUnit')}</span>
+              </div>`;
+            }).join('');
+          })()}
+        </div>
       </div>
 
       <div class="card table-card mt">
@@ -350,6 +378,7 @@ const Pages = {
     $('#wCsv').onclick = () => table.exportCSV();
     $('#btnAddW').onclick = () => workoutForm();
     $('#btnTemplates').onclick = () => templatesDialog();
+    $('#btnLive').onclick = () => (typeof LIVE !== 'undefined' && LIVE ? liveDialog() : liveStartDialog());
     initExerciseExplorer();
 
     const ws = [...Store.data.workouts].sort((a, b) => a.date.localeCompare(b.date));
@@ -426,6 +455,12 @@ const Pages = {
         ${statCard(t('proteinS'), `${Math.round(mac.protein)}<small> / ${g.protein} g</small>`, `${Math.round(mac.protein / g.protein * 100)}%`, 'delta-good', 'activity', 'ico-blue')}
         ${statCard(t('carbsS'), `${Math.round(mac.carbs)}<small> / ${g.carbs} g</small>`, `${Math.round(mac.carbs / g.carbs * 100)}%`, 'delta-neutral', 'target', 'ico-amber')}
         ${statCard(t('fatS'), `${Math.round(mac.fat)}<small> / ${g.fat} g</small>`, `${Math.round(mac.fat / g.fat * 100)}%`, 'delta-neutral', 'droplet', 'ico-purple')}
+        ${(() => {
+          const td = Stats.estTdee();
+          return td
+            ? statCard(t('tdeeLbl'), `${td.tdee}<small> kcal</small>`, t('tdeeSub', td.days, (td.weeklyDelta > 0 ? '+' : '') + td.weeklyDelta), 'delta-neutral', 'gauge', 'ico-emerald')
+            : statCard(t('tdeeLbl'), '—', t('tdeeNeed'), 'delta-neutral', 'gauge', 'ico-emerald');
+        })()}
       </div>
 
       <div class="grid grid-2 mt">
@@ -517,7 +552,7 @@ const Pages = {
         <div class="page-head">
           <div class="page-title"><h1>${t('navRest')}</h1><p>${t('restSub')}</p></div>
           <div class="actions">
-            <button class="btn" id="btnImpWell">${ic('upload')} ${t('importWellness')}</button>
+            <button class="btn" id="btnImpWell">${ic('upload')} ${t('impBtn')}</button>
             <button class="btn btn-primary" id="btnAddWell">${ic('plus')} ${t('addWellness')}</button>
           </div>
         </div>
@@ -536,7 +571,7 @@ const Pages = {
       <div class="page-head">
         <div class="page-title"><h1>${t('navRest')}</h1><p>${t('restSub')} · ${fmtDate(last)}</p></div>
         <div class="actions">
-          <button class="btn" id="btnImpWell">${ic('upload')} ${t('importWellness')}</button>
+          <button class="btn" id="btnImpWell">${ic('upload')} ${t('impBtn')}</button>
           <button class="btn btn-primary" id="btnAddWell">${ic('plus')} ${t('addWellness')}</button>
         </div>
       </div>
@@ -571,6 +606,10 @@ const Pages = {
       <div class="card mt"><div class="card-title">${t('readinessTrend')}</div><div class="card-sub">${t('last30')}</div>
         <div class="chart-wrap short"><canvas id="chReady"></canvas></div>
         <div style="font-size:11.5px;color:var(--text-faint);margin-top:10px">${t('readinessNote')}</div></div>
+
+      <div class="card mt"><div class="card-head-row"><div><div class="card-title">${t('corrTitle')}</div><div class="card-sub">${t('corrSub')}</div></div><span id="corrBadge"></span></div>
+        <div class="chart-wrap short"><canvas id="chCorr"></canvas></div>
+        <div id="corrNote" style="font-size:11.5px;color:var(--text-faint);margin-top:10px"></div></div>
     </div>`;
   },
 
@@ -619,6 +658,21 @@ const Pages = {
         },
       },
     });
+
+    // Correlazione volume ↔ readiness
+    {
+      const { pts, r } = corrVolumeReadiness();
+      if (pts.length >= 5) {
+        $('#corrBadge').innerHTML = `<span class="badge ${r != null && r < -0.3 ? 'badge-amber' : 'badge-blue'}">${t('corrR', r ?? '—', pts.length)}</span>`;
+        Charts.make('chCorr', {
+          type: 'scatter',
+          data: { datasets: [{ label: t('readiness'), data: pts, backgroundColor: Charts.colors.purple + 'cc', pointRadius: 5 }] },
+          options: { ...Charts.baseOpts(), plugins: { ...Charts.baseOpts().plugins, legend: { display: false } } },
+        });
+      } else {
+        $('#corrNote').textContent = t('corrFew');
+      }
+    }
 
     // Readiness 30gg
     const d30 = lastN(30);
@@ -674,7 +728,7 @@ const Pages = {
       <div class="page-head">
         <div class="page-title"><h1>${t('navHealth')}</h1><p>${t('healthSub')}</p></div>
         <div class="actions">
-          <button class="btn" id="btnImpWell2">${ic('upload')} ${t('importWellness')}</button>
+          <button class="btn" id="btnImpWell2">${ic('upload')} ${t('impBtn')}</button>
           <button class="btn btn-primary" id="btnAddWell2">${ic('plus')} ${t('addWellness')}</button>
         </div>
       </div>
@@ -841,11 +895,22 @@ const Pages = {
       statCard('Volume', `${Math.round(vol / 1000)}<small> t</small>`, t('lifted'), 'delta-good', 'trending', 'ico-purple') +
       statCard('Δ ' + fl(F('waist')), first && last && first.waist != null && last.waist != null ? `${round1(last.waist - first.waist)}<small> cm</small>` : '—', t('girth'), 'delta-down', 'ruler', 'ico-amber');
 
-    Charts.make('pgWeight', {
-      type: 'line',
-      data: { labels: ms.map(m => fmtDateShort(m.date)), datasets: [{ label: t('weightKg'), data: ms.map(m => m.weight), borderColor: Charts.colors.emerald, backgroundColor: Charts.gradient('pgWeight', Charts.colors.emerald), fill: true, tension: .35, pointRadius: 3, borderWidth: 2.5 }] },
-      options: Charts.baseOpts(),
-    });
+    {
+      const all = Stats.sortedMeasurements();
+      const maAll = Stats.weightMA7();
+      const maMap = new Map(all.map((m, i) => [m.date, maAll[i]]));
+      Charts.make('pgWeight', {
+        type: 'line',
+        data: {
+          labels: ms.map(m => fmtDateShort(m.date)),
+          datasets: [
+            { label: t('weightKg'), data: ms.map(m => m.weight), borderColor: Charts.colors.emerald, backgroundColor: Charts.gradient('pgWeight', Charts.colors.emerald), fill: true, tension: .35, pointRadius: 3, borderWidth: 2.5 },
+            { label: t('ma7'), data: ms.map(m => maMap.get(m.date)), borderColor: Charts.colors.blue, borderDash: [6, 5], pointRadius: 0, borderWidth: 2, tension: .35, fill: false },
+          ],
+        },
+        options: Charts.baseOpts(),
+      });
+    }
 
     Charts.make('pgCirc', {
       type: 'line',

@@ -163,6 +163,70 @@ const Stats = {
     return Object.values(best).sort((a, b) => b.orm - a.orm);
   },
 
+  /* Media mobile del peso su finestra di 7 giorni (per data, non per indice) */
+  weightMA7() {
+    const ms = this.sortedMeasurements();
+    return ms.map(m => {
+      const from = new Date(m.date + 'T00:00'); from.setDate(from.getDate() - 6);
+      const lo = isoOf(from);
+      const win = ms.filter(x => x.date >= lo && x.date <= m.date);
+      return round1(win.reduce((a, x) => a + x.weight, 0) / win.length);
+    });
+  },
+
+  /* TDEE reale: kcal medie mangiate − energia della variazione di peso.
+     Richiede ≥10 giorni loggati e ≥2 pesate su un arco ≥7 giorni (28gg max). */
+  estTdee() {
+    const from = daysAgo(27);
+    const dayList = [...new Set(Store.data.meals.filter(m => m.date >= from).map(m => m.date))]
+      .filter(d => this.dayMacros(d).kcal > 500); // giorni loggati sul serio
+    if (dayList.length < 10) return null;
+    const avgIn = dayList.reduce((a, d) => a + this.dayMacros(d).kcal, 0) / dayList.length;
+
+    const ms = this.sortedMeasurements().filter(m => m.date >= from);
+    if (ms.length < 2) return null;
+    const x0 = new Date(ms[0].date + 'T00:00');
+    const xs = ms.map(m => (new Date(m.date + 'T00:00') - x0) / 86400000);
+    if (xs[xs.length - 1] < 7) return null;
+    const ys = ms.map(m => m.weight);
+    const n = xs.length;
+    const sx = xs.reduce((a, b) => a + b, 0), sy = ys.reduce((a, b) => a + b, 0);
+    const sxy = xs.reduce((a, x, i) => a + x * ys[i], 0), sxx = xs.reduce((a, x) => a + x * x, 0);
+    const slope = (n * sxy - sx * sy) / (n * sxx - sx * sx || 1); // kg/giorno
+
+    const tdee = Math.round(avgIn - slope * 7700);
+    if (tdee < 1000 || tdee > 6000) return null;
+    return { tdee, days: dayList.length, weeklyDelta: round1(slope * 7) };
+  },
+
+  /* Serie per gruppo muscolare negli ultimi 7 giorni */
+  weeklySetsByGroup() {
+    const from = daysAgo(6);
+    const out = {};
+    Store.data.workouts.filter(w => w.date >= from).forEach(w =>
+      w.exercises.forEach(e => { out[e.group] = (out[e.group] || 0) + e.sets; }));
+    return out;
+  },
+
+  /* Ultima esecuzione di un esercizio (per data più recente) */
+  lastExercisePerf(name) {
+    const q = name.trim().toLowerCase();
+    const ws = this.sortedWorkouts(); // già in ordine decrescente
+    for (const w of ws) {
+      const e = w.exercises.find(x => x.name.toLowerCase() === q);
+      if (e) return { ...e, date: w.date };
+    }
+    return null;
+  },
+
+  /* Doppia progressione: RPE basso → sali, 9 → ripeti, 10 → scendi */
+  suggestNextLoad(perf) {
+    if (!perf || perf.mode === 'time' || !perf.weight) return null;
+    if (perf.rpe >= 10) return { kind: 'less', weight: Math.max(0, round1(perf.weight - 2.5)) };
+    if (perf.rpe === 9) return { kind: 'repeat', weight: perf.weight };
+    return { kind: 'more', weight: round1(perf.weight + 2.5) };
+  },
+
   muscleFrequency() {
     const freq = {};
     Store.data.workouts.forEach(w => w.exercises.forEach(e => { freq[e.group] = (freq[e.group] || 0) + e.sets; }));
