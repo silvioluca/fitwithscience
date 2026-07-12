@@ -259,4 +259,7 @@ window.FWS_I18N.en = {
   liveEmpty: 'Empty session', liveFromTpl: 'From template', liveDone: 'Session saved: {0} min',
   livePr: 'New PR: {0}!', liveDiscard: 'Discard', liveNoSets: 'No sets completed',
   liveSetOf: 'set {0}/{1}',
+  newTpl: 'New template',
+  exHistCard: 'Exercise history', exHistSub: 'Top weight and estimated 1RM per session',
+  setProgress: '{0} of {1} sets',
 };

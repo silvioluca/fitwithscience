@@ -338,6 +338,12 @@ const Pages = {
       </div>
 
       <div class="card mt">
+        <div class="card-head-row"><div><div class="card-title">${t('exHistCard')}</div><div class="card-sub">${t('exHistSub')}</div></div>
+          <select id="exHistSel" class="table-search" style="width:auto;max-width:230px"></select></div>
+        <div class="chart-wrap short"><canvas id="chExHistCard"></canvas></div>
+      </div>
+
+      <div class="card mt">
         <div class="card-head-row"><div><div class="card-title">${t('explTitle')}</div><div class="card-sub">${t('explSub')}</div></div>
           <input class="table-search" id="explSearch" placeholder="${t('searchMini')}"></div>
         <div class="gpill-row" id="explPills" style="margin:6px 0 10px">
@@ -379,6 +385,40 @@ const Pages = {
     $('#btnAddW').onclick = () => workoutForm();
     $('#btnTemplates').onclick = () => templatesDialog();
     $('#btnLive').onclick = () => (typeof LIVE !== 'undefined' && LIVE ? liveDialog() : liveStartDialog());
+
+    // Storico esercizio: dropdown degli esercizi svolti (con dati validi)
+    {
+      const seen = new Map(); // nome canonico → data più recente
+      Stats.sortedWorkouts().forEach(w => w.exercises.forEach(e => {
+        if (e.mode === 'time' || !e.weight) return;
+        if (!seen.has(e.name)) seen.set(e.name, w.date);
+      }));
+      const names = [...seen.keys()]; // già in ordine di uso più recente
+      const sel = $('#exHistSel');
+      if (!names.length) {
+        sel.style.display = 'none';
+      } else {
+        sel.innerHTML = names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+        const draw = name => {
+          Charts.registry = Charts.registry.filter(c => (c.canvas.id === 'chExHistCard' ? (c.destroy(), false) : true));
+          const rows = exerciseHistoryRows(name);
+          Charts.make('chExHistCard', {
+            type: 'line',
+            data: {
+              labels: rows.map(r => fmtDateShort(r.date)),
+              datasets: [
+                { label: t('bestSet') + ' (kg)', data: rows.map(r => r.weight), borderColor: Charts.colors.blue, tension: .3, pointRadius: 3, borderWidth: 2 },
+                { label: t('est1rm') + ' (kg)', data: rows.map(r => r.orm), borderColor: Charts.colors.emerald, borderDash: [6, 5], tension: .3, pointRadius: 2, borderWidth: 2 },
+              ],
+            },
+            options: Charts.baseOpts(),
+          });
+        };
+        sel.onchange = () => draw(sel.value);
+        draw(names[0]);
+      }
+    }
+
     initExerciseExplorer();
 
     const ws = [...Store.data.workouts].sort((a, b) => a.date.localeCompare(b.date));

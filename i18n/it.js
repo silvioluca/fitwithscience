@@ -259,4 +259,7 @@ window.FWS_I18N.it = {
   liveEmpty: 'Sessione vuota', liveFromTpl: 'Da modello', liveDone: 'Sessione salvata: {0} min',
   livePr: 'Nuovo PR: {0}!', liveDiscard: 'Scarta', liveNoSets: 'Nessuna serie completata',
   liveSetOf: 'serie {0}/{1}',
+  newTpl: 'Nuovo modello',
+  exHistCard: 'Storico esercizio', exHistSub: 'Peso massimo e 1RM stimato per sessione',
+  setProgress: '{0} di {1} serie',
 };

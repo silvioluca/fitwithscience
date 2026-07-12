@@ -115,6 +115,96 @@ function exerciseBlockHTML(e = {}) {
   </div>`;
 }
 
+/* Binding condiviso dei blocchi esercizio: autocomplete, pill, stepper,
+   toggle rip/durata, suggerimento carico. Usato da workoutForm e templateForm. */
+function bindExerciseBlocks(root) {
+      $$('.ex-del', root).forEach(b => b.onclick = () => {
+        if ($$('.ex-block', root).length === 1) { Toast.show(t('minOneEx'), 'error'); return; }
+        b.closest('.ex-block').remove();
+      });
+      // Toggle Ripetizioni/Durata (es. plank): cambia label e passo dello stepper
+      $$('.mchip', root).forEach(b => b.onclick = () => {
+        const bl = b.closest('.ex-block');
+        const time = b.dataset.mode === 'time';
+        $$('.mchip', bl).forEach(x => x.classList.toggle('active', x === b));
+        $('[data-f="mode"]', bl).value = b.dataset.mode;
+        $('.reps-label', bl).innerHTML = (time ? t('durationS') : t('reps')) + ' *';
+        const repsStepper = $('[data-f="reps"]', bl).closest('.stepper');
+        $$('.st-btn', repsStepper).forEach(sb => { sb.dataset.step = (Number(sb.dataset.step) < 0 ? -1 : 1) * (time ? 15 : 1); });
+      });
+      // Pill gruppo muscolare (selezione singola; "Altri…" espande i secondari)
+      $$('.gpill', root).forEach(b => b.onclick = () => {
+        const bl = b.closest('.ex-block');
+        if (b.classList.contains('gpill-more')) {
+          const extra = $('.gpill-extra', bl);
+          extra.hidden = !extra.hidden; // toggle: il pulsante resta visibile
+          b.classList.toggle('active', !extra.hidden);
+          return;
+        }
+        $$('.gpill', bl).forEach(x => x.classList.toggle('active', x === b && !x.classList.contains('gpill-more')));
+        $('[data-f="group"]', bl).value = b.dataset.g;
+      });
+      // Suggerimento carico: ultima esecuzione + doppia progressione
+      const updateHint = bl => {
+        const el = $('.ex-hint', bl);
+        if (!el) return;
+        const name = $('[data-f="name"]', bl).value.trim();
+        const perf = name ? Stats.lastExercisePerf(name) : null;
+        if (!perf) { el.textContent = ''; return; }
+        const sug = Stats.suggestNextLoad(perf);
+        let txt = t('lastTime', perf.sets, perf.reps + (perf.mode === 'time' ? 's' : ''), perf.weight, perf.rpe);
+        if (sug) txt += ' ' + (sug.kind === 'more' ? t('tryNext', sug.weight) : sug.kind === 'repeat' ? t('tryRepeat') : t('tryLess', sug.weight));
+        el.textContent = txt;
+      };
+      $$('.ex-block', root).forEach(updateHint);
+
+      // Autocomplete nome esercizio (DB locale + personalizzati)
+      $$('.ex-name', root).forEach(inp => {
+        const bl = inp.closest('.ex-block');
+        const list = $('.ex-suggest', bl);
+        inp.addEventListener('change', () => updateHint(bl));
+        inp.oninput = () => {
+          const q = inp.value.trim().toLowerCase();
+          if (q.length < 2) { list.classList.remove('open'); return; }
+          const matches = allExercises().filter(x => x.name.toLowerCase().includes(q)).slice(0, 8);
+          if (!matches.length) { list.classList.remove('open'); return; }
+          list.innerHTML = matches.map((x, i) =>
+            `<button type="button" class="fs-item" data-i="${i}"><span>${esc(x.name)}</span><small>${esc(x.group)}</small></button>`).join('');
+          list.classList.add('open');
+          $$('.fs-item', list).forEach(b => b.onclick = () => {
+            const x = matches[Number(b.dataset.i)];
+            inp.value = x.name;
+            setBlockGroup(bl, x.group); // compila anche la pill del gruppo
+            list.classList.remove('open');
+            updateHint(bl);
+          });
+        };
+        inp.onblur = () => setTimeout(() => list.classList.remove('open'), 200); // lascia il tempo al click
+      });
+      // Stepper generico −/＋ con clamp min/max
+      $$('.st-btn', root).forEach(b => b.onclick = () => {
+        const wrap = b.closest('.stepper');
+        const inp = $('input', wrap);
+        const min = Number(wrap.dataset.min || 0);
+        const max = wrap.dataset.max !== undefined ? Number(wrap.dataset.max) : Infinity;
+        inp.value = Math.min(max, Math.max(min, round1((Number(inp.value) || 0) + Number(b.dataset.step))));
+      });
+}
+
+/* Raccolta esercizi dai blocchi presenti nel form */
+function collectExercises(root) {
+  return $$('.ex-block', root).map(bl => {
+    const get = f => $(`[data-f="${f}"]`, bl).value;
+    return {
+      id: bl.dataset.exid, name: get('name').trim(),
+      group: get('group') || 'Altro', mode: get('mode') === 'time' ? 'time' : 'reps',
+      sets: Number(get('sets')), reps: Number(get('reps')),
+      weight: Number(get('weight')) || 0, rest: Number(get('rest')) || 0,
+      rpe: Number(get('rpe')), notes: bl.dataset.notes || '',
+    };
+  });
+}
+
 function workoutForm(existing = null, fromTemplate = null) {
   const w = existing || fromTemplate || { name: '', group: '', duration: 60, notes: '', exercises: [{}] };
   const body = `
@@ -134,79 +224,7 @@ function workoutForm(existing = null, fromTemplate = null) {
     footer: `${existing ? `<button class="btn" id="fwDup">${ic('copy')} ${t('duplicate')}</button><button class="btn" id="fwTpl">${ic('clipboard')} ${t('saveTemplate')}</button>` : ''}
       <button class="btn" onclick="Modal.close()">${t('cancel')}</button><button class="btn btn-primary" id="fwSave">${t('save')}</button>`,
     onMount(root) {
-      const bindBlocks = () => {
-        $$('.ex-del', root).forEach(b => b.onclick = () => {
-          if ($$('.ex-block', root).length === 1) { Toast.show(t('minOneEx'), 'error'); return; }
-          b.closest('.ex-block').remove();
-        });
-        // Toggle Ripetizioni/Durata (es. plank): cambia label e passo dello stepper
-        $$('.mchip', root).forEach(b => b.onclick = () => {
-          const bl = b.closest('.ex-block');
-          const time = b.dataset.mode === 'time';
-          $$('.mchip', bl).forEach(x => x.classList.toggle('active', x === b));
-          $('[data-f="mode"]', bl).value = b.dataset.mode;
-          $('.reps-label', bl).innerHTML = (time ? t('durationS') : t('reps')) + ' *';
-          const repsStepper = $('[data-f="reps"]', bl).closest('.stepper');
-          $$('.st-btn', repsStepper).forEach(sb => { sb.dataset.step = (Number(sb.dataset.step) < 0 ? -1 : 1) * (time ? 15 : 1); });
-        });
-        // Pill gruppo muscolare (selezione singola; "Altri…" espande i secondari)
-        $$('.gpill', root).forEach(b => b.onclick = () => {
-          const bl = b.closest('.ex-block');
-          if (b.classList.contains('gpill-more')) {
-            const extra = $('.gpill-extra', bl);
-            extra.hidden = !extra.hidden; // toggle: il pulsante resta visibile
-            b.classList.toggle('active', !extra.hidden);
-            return;
-          }
-          $$('.gpill', bl).forEach(x => x.classList.toggle('active', x === b && !x.classList.contains('gpill-more')));
-          $('[data-f="group"]', bl).value = b.dataset.g;
-        });
-        // Suggerimento carico: ultima esecuzione + doppia progressione
-        const updateHint = bl => {
-          const el = $('.ex-hint', bl);
-          if (!el) return;
-          const name = $('[data-f="name"]', bl).value.trim();
-          const perf = name ? Stats.lastExercisePerf(name) : null;
-          if (!perf) { el.textContent = ''; return; }
-          const sug = Stats.suggestNextLoad(perf);
-          let txt = t('lastTime', perf.sets, perf.reps + (perf.mode === 'time' ? 's' : ''), perf.weight, perf.rpe);
-          if (sug) txt += ' ' + (sug.kind === 'more' ? t('tryNext', sug.weight) : sug.kind === 'repeat' ? t('tryRepeat') : t('tryLess', sug.weight));
-          el.textContent = txt;
-        };
-        $$('.ex-block', root).forEach(updateHint);
-
-        // Autocomplete nome esercizio (DB locale + personalizzati)
-        $$('.ex-name', root).forEach(inp => {
-          const bl = inp.closest('.ex-block');
-          const list = $('.ex-suggest', bl);
-          inp.addEventListener('change', () => updateHint(bl));
-          inp.oninput = () => {
-            const q = inp.value.trim().toLowerCase();
-            if (q.length < 2) { list.classList.remove('open'); return; }
-            const matches = allExercises().filter(x => x.name.toLowerCase().includes(q)).slice(0, 8);
-            if (!matches.length) { list.classList.remove('open'); return; }
-            list.innerHTML = matches.map((x, i) =>
-              `<button type="button" class="fs-item" data-i="${i}"><span>${esc(x.name)}</span><small>${esc(x.group)}</small></button>`).join('');
-            list.classList.add('open');
-            $$('.fs-item', list).forEach(b => b.onclick = () => {
-              const x = matches[Number(b.dataset.i)];
-              inp.value = x.name;
-              setBlockGroup(bl, x.group); // compila anche la pill del gruppo
-              list.classList.remove('open');
-              updateHint(bl);
-            });
-          };
-          inp.onblur = () => setTimeout(() => list.classList.remove('open'), 200); // lascia il tempo al click
-        });
-        // Stepper generico −/＋ con clamp min/max
-        $$('.st-btn', root).forEach(b => b.onclick = () => {
-          const wrap = b.closest('.stepper');
-          const inp = $('input', wrap);
-          const min = Number(wrap.dataset.min || 0);
-          const max = wrap.dataset.max !== undefined ? Number(wrap.dataset.max) : Infinity;
-          inp.value = Math.min(max, Math.max(min, round1((Number(inp.value) || 0) + Number(b.dataset.step))));
-        });
-      };
+      const bindBlocks = () => bindExerciseBlocks(root);
       bindBlocks();
       $('#addEx', root).onclick = () => { $('#exList', root).insertAdjacentHTML('beforeend', exerciseBlockHTML()); bindBlocks(); };
 
@@ -219,16 +237,7 @@ function workoutForm(existing = null, fromTemplate = null) {
           group: $('#fwGroup', root).value,
           duration: Number($('#fwDur', root).value) || 0,
           notes: existing?.notes || '',
-          exercises: $$('.ex-block', root).map(bl => {
-            const get = f => $(`[data-f="${f}"]`, bl).value;
-            return {
-              id: bl.dataset.exid, name: get('name').trim(),
-              group: get('group') || 'Altro', mode: get('mode') === 'time' ? 'time' : 'reps',
-              sets: Number(get('sets')), reps: Number(get('reps')),
-              weight: Number(get('weight')) || 0, rest: Number(get('rest')) || 0,
-              rpe: Number(get('rpe')), notes: bl.dataset.notes || '',
-            };
-          }),
+          exercises: collectExercises(root),
         };
       };
 
@@ -335,13 +344,18 @@ function initExerciseExplorer() {
 /* =====================================================================
    STORICO ESERCIZIO — carico e 1RM stimato nel tempo per un esercizio
    ===================================================================== */
-function exerciseHistoryDialog(name) {
+function exerciseHistoryRows(name) {
   const q = name.trim().toLowerCase();
   const rows = [];
   [...Store.data.workouts].sort((a, b) => a.date.localeCompare(b.date)).forEach(w => {
     w.exercises.filter(e => e.name.toLowerCase() === q && e.mode !== 'time' && e.weight)
       .forEach(e => rows.push({ date: w.date, sets: e.sets, reps: e.reps, weight: e.weight, orm: round1(e.weight * (1 + e.reps / 30)) }));
   });
+  return rows;
+}
+
+function exerciseHistoryDialog(name) {
+  const rows = exerciseHistoryRows(name);
 
   Modal.open({
     title: t('exHist', name), wide: true,
@@ -441,11 +455,14 @@ function liveDialog() {
         box.innerHTML = LIVE.exs.length ? LIVE.exs.map((e, i) => `
           <div class="ex-block">
             <div class="ex-row-top">
-              <div class="list-main" style="flex:1"><b style="display:inline">${esc(e.name)}</b>
-                <span style="margin-left:8px;font-size:12px;color:var(--text-soft)">${t('liveSetOf', e.done, e.total)}</span></div>
+              <div class="list-main" style="flex:1;min-width:0"><b style="display:inline">${esc(e.name)}</b>
+                <span class="live-prog">
+                  <span class="progress"><span class="progress-fill" style="width:${e.total ? Math.round(e.done / e.total * 100) : 0}%;background:var(--blue)"></span></span>
+                  <span class="live-prog-txt">${t('setProgress', e.done, e.total)}</span>
+                </span></div>
               <button type="button" class="btn btn-sm btn-blue" data-set="${i}" ${e.done >= e.total ? 'disabled style="opacity:.45"' : ''}>${ic('check')} ${t('sets')}</button>
             </div>
-            <div class="ex-grid">
+            <div class="live-grid">
               <div class="field"><label>${e.mode === 'time' ? t('durationS') : t('reps')}</label><input type="number" min="1" data-reps="${i}" value="${e.reps}"></div>
               <div class="field"><label>${t('weightKg')}</label><input type="number" step="0.5" min="0" data-w="${i}" value="${e.weight}"></div>
               <div class="field"><label>${t('rest')}</label><input type="number" min="0" step="15" data-rest="${i}" value="${e.rest}"></div>
@@ -533,19 +550,58 @@ function liveDialog() {
   });
 }
 
+/* Editor di un modello di allenamento (nome + gruppo + esercizi) */
+function templateForm(tpl = null) {
+  const tp = tpl || { name: '', group: 'Upper Body', exercises: [{}] };
+  Modal.open({
+    title: t('newTpl'), wide: true,
+    body: `
+      <div class="form-grid">
+        <div class="field full"><label>${t('name')} *</label><input id="tfName" data-req value="${esc(tp.name)}" placeholder="${t('phWorkName')}"><div class="err-msg">${t('required')}</div></div>
+        <div class="field"><label>${t('muscleGroup')}</label>
+          <select id="tfGroup">${['Upper Body', 'Lower Body', 'Full Body', 'Push', 'Pull', 'Legs', 'Altro'].map(g => `<option ${tp.group === g ? 'selected' : ''}>${g}</option>`).join('')}</select></div>
+      </div>
+      <div style="margin:16px 0 10px;font-weight:700;font-size:14px">${t('exsCol')}</div>
+      <div id="exList">${tp.exercises.map(e => exerciseBlockHTML(e)).join('')}</div>
+      <button class="btn btn-sm" id="addEx">${ic('plus')} ${t('addExercise')}</button>`,
+    footer: `<button class="btn" onclick="Modal.close()">${t('cancel')}</button><button class="btn btn-primary" id="tfSave">${t('save')}</button>`,
+    onMount(root) {
+      bindExerciseBlocks(root);
+      $('#addEx', root).onclick = () => { $('#exList', root).insertAdjacentHTML('beforeend', exerciseBlockHTML()); bindExerciseBlocks(root); };
+      $('#tfSave', root).onclick = () => {
+        if (!validateForm(root)) { Toast.show(t('reqFields'), 'error'); return; }
+        const rec = {
+          id: tpl?.id || uid(),
+          name: $('#tfName', root).value.trim(),
+          group: $('#tfGroup', root).value,
+          exercises: collectExercises(root),
+        };
+        const i = Store.data.templates.findIndex(x => x.id === rec.id);
+        if (i >= 0) Store.data.templates[i] = rec; else Store.data.templates.push(rec);
+        Store.save();
+        Modal.close();
+        Toast.show(t('tplSaved'));
+        Router.render(); // aggiorna il contatore nel pulsante Modelli
+      };
+    },
+  });
+}
+
 function templatesDialog() {
   const tpls = Store.data.templates;
   Modal.open({
     title: t('tplTitle'),
-    body: tpls.length ? tpls.map(tp => `<div class="list-row">
+    body: (tpls.length ? tpls.map(tp => `<div class="list-row">
       <div class="list-ico ico-blue">${ic('clipboard')}</div>
       <div class="list-main"><b>${esc(tp.name)}</b><span>${tp.exercises.length} ${t('exercises')} · ${esc(tp.group)}</span></div>
       <div class="td-actions" style="margin-left:auto;align-items:center">
         <button class="btn btn-sm btn-primary" data-usetpl="${tp.id}">${t('use')}</button>
         <button class="btn-icon danger" data-deltpl="${tp.id}">${ic('trash')}</button>
       </div></div>`).join('')
-      : emptyState('clipboard', t('noTpl'), t('noTplP')),
+      : emptyState('clipboard', t('noTpl'), t('noTplP'))),
+    footer: `<button class="btn btn-blue" id="tplNew">${ic('plus')} ${t('newTpl')}</button>`,
     onMount(root) {
+      $('#tplNew', root).onclick = () => { Modal.close(); setTimeout(() => templateForm(), 300); };
       $$('[data-usetpl]', root).forEach(b => b.onclick = () => {
         const tp = tpls.find(x => x.id === b.dataset.usetpl);
         Modal.close();

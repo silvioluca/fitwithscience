@@ -1053,6 +1053,17 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .cmp-label { color: var(--text-soft); }
 .cmp-delta { font-weight: 700; text-align: right; }
 
+/* Sessione live: barra avanzamento serie + input compatti su una riga */
+.live-prog { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.live-prog .progress { flex: 1; height: 8px; display: block; }
+.live-prog .progress-fill { display: block; height: 100%; border-radius: 20px; transition: width .25s; }
+.live-prog-txt { font-size: 11.5px; color: var(--text-soft); white-space: nowrap; }
+
+.live-grid { display: flex; gap: 8px; }
+.live-grid .field { flex: 1 1 0; min-width: 0; margin: 0; }
+.live-grid .field label { font-size: 10px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; }
+.live-grid .field input { height: 34px; font-size: 13px; padding: 0 8px; }
+
 /* Esploratore esercizi (sezione inline in Allenamento) */
 .expl-list { max-height: 340px; overflow-y: auto; }
 .expl-list .list-row { transition: background .15s, box-shadow .15s; }
