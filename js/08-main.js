@@ -535,16 +535,24 @@ async function cloudStart(fbU) {
   catch { Toast.show(t('cloudErr'), 'error'); }
 
   Store.init(user); // cache locale o blank
-  const localAt = Store.data.updatedAt || 0;
-  if (cloudData && cloudData.profile && (cloudData.updatedAt || 0) >= localAt) {
-    Store.data = cloudData; // il cloud è più recente: è lui lo storico condiviso
+  if (cloudData && cloudData.profile) {
+    // fusione: le aggiunte di entrambe le copie sopravvivono
+    Store.data = Cloud.merge(Store.data, cloudData);
     Store.migrate();
     localStorage.setItem(Store.key, JSON.stringify(Store.data));
-  } else {
-    Cloud.scheduleSave(); // la copia locale è più nuova (o il cloud è vuoto): push
   }
+  Cloud.scheduleSave(); // spinge lo stato fuso (o iniziale) sul cloud
 
   startApp(user);
+
+  // Realtime: le scritture degli altri dispositivi arrivano subito,
+  // anche a pagina aperta (era il motivo per cui il desktop non le vedeva)
+  firebase.firestore().collection('users').doc(fbU.uid).onSnapshot(snap => {
+    if (!snap.exists || snap.metadata.hasPendingWrites) return; // ignora l'eco locale
+    const remote = snap.data();
+    if ((remote.updatedAt || 0) <= (Store.data.updatedAt || 0)) return;
+    Cloud.adoptRemote(remote);
+  });
 }
 
 /* Mappa gli errori Firebase Auth su messaggi tradotti */

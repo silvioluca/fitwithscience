@@ -43,6 +43,42 @@ const Cloud = {
     return true;
   },
 
+  /* Merge di due copie dei dati: le aggiunte di entrambe sopravvivono.
+     'remote' è la copia più recente → vince sugli elementi in conflitto
+     (stesso id/chiave) e sugli scalari (profilo, obiettivi). */
+  merge(local, remote) {
+    const byKey = (a = [], b = [], key) => {
+      const m = new Map(a.map(x => [x[key], x]));
+      b.forEach(x => m.set(x[key], x)); // il remoto (più recente) vince sui condivisi
+      return [...m.values()];
+    };
+    return {
+      ...remote,
+      measurements: byKey(local.measurements, remote.measurements, 'id'),
+      workouts: byKey(local.workouts, remote.workouts, 'id'),
+      templates: byKey(local.templates, remote.templates, 'id'),
+      meals: byKey(local.meals, remote.meals, 'id'),
+      customFoods: byKey(local.customFoods, remote.customFoods, 'name'),
+      customExercises: byKey(local.customExercises, remote.customExercises, 'name'),
+      water: { ...local.water, ...remote.water },
+      wellness: { ...local.wellness, ...remote.wellness },
+      foodPrefs: { ...local.foodPrefs, ...remote.foodPrefs },
+      updatedAt: Date.now(),
+    };
+  },
+
+  /* Adotta dati remoti più recenti fondendoli con quelli locali */
+  adoptRemote(remote, notify = true) {
+    Store.data = this.merge(Store.data, remote);
+    Store.migrate();
+    localStorage.setItem(Store.key, JSON.stringify(Store.data));
+    if (notify && Date.now() - (this._toastAt || 0) > 30000) { // niente spam di toast
+      this._toastAt = Date.now();
+      Toast.show(t('syncNewer'), 'info');
+    }
+    if (typeof Router !== 'undefined' && !document.body.classList.contains('auth-locked')) Router.render();
+  },
+
   async load(uid) {
     const snap = await firebase.firestore().collection('users').doc(uid).get();
     return snap.exists ? snap.data() : null;
@@ -57,24 +93,26 @@ const Cloud = {
     this.saveTimer = setTimeout(async () => {
       const ref = firebase.firestore().collection('users').doc(this.uid);
       try {
+        let merged = null;
         await firebase.firestore().runTransaction(async tx => {
           const snap = await tx.get(ref);
           const remote = snap.exists ? snap.data() : null;
           if (remote && (remote.updatedAt || 0) > (Store.data.updatedAt || 0)) {
-            const err = new Error('stale'); err.stale = remote; throw err;
+            // qualcun altro ha scritto: fondi e scrivi l'unione — nessuna aggiunta va persa
+            merged = this.merge(Store.data, remote);
+            tx.set(ref, JSON.parse(JSON.stringify(merged)));
+          } else {
+            tx.set(ref, JSON.parse(JSON.stringify(Store.data)));
           }
-          tx.set(ref, JSON.parse(JSON.stringify(Store.data)));
         });
-      } catch (e) {
-        if (e && e.stale) {
-          Store.data = e.stale;
+        if (merged) {
+          Store.data = merged;
           Store.migrate();
           localStorage.setItem(Store.key, JSON.stringify(Store.data));
-          Toast.show(t('syncNewer'), 'info');
           if (typeof Router !== 'undefined' && !document.body.classList.contains('auth-locked')) Router.render();
-        } else {
-          Toast.show(t('cloudErr'), 'error');
         }
+      } catch (e) {
+        Toast.show(t('cloudErr'), 'error');
       }
     }, 1500);
   },

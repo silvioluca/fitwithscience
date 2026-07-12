@@ -132,6 +132,21 @@ const shareTxt = workoutShareText(w1);
 ok('share: contiene volume corretto', shareTxt.includes('1.920') || shareTxt.includes('1920'));
 ok('share: durata in secondi per il plank', shareTxt.includes('3×60s'));
 
+/* ---------- Cloud.merge: le aggiunte di entrambi i device sopravvivono ---------- */
+{
+  const local = { ...Store.blank(), meals: [{ id: 'd1', name: 'Desktop' }], water: { '2026-07-11': 5 }, updatedAt: 100 };
+  const remote = { ...Store.blank(), meals: [{ id: 'p1', name: 'Phone' }], water: { '2026-07-12': 3 }, profile: { firstName: 'R' }, updatedAt: 200 };
+  const m = Cloud.merge(local, remote);
+  eq('merge: union dei pasti per id', m.meals.map(x => x.id).sort(), ['d1', 'p1']);
+  eq('merge: union acqua per data', Object.keys(m.water).sort(), ['2026-07-11', '2026-07-12']);
+  eq('merge: scalari → vince il più recente', m.profile.firstName, 'R');
+  const conflict = Cloud.merge(
+    { ...Store.blank(), meals: [{ id: 'x', name: 'vecchio' }] },
+    { ...Store.blank(), meals: [{ id: 'x', name: 'nuovo' }] });
+  eq('merge: stesso id → vince il remoto (più recente)', conflict.meals[0].name, 'nuovo');
+  ok('merge: updatedAt rigenerato', m.updatedAt > 200);
+}
+
 /* ---------- esito ---------- */
 console.log(`\n${pass} passati, ${fail} falliti`);
 process.exit(fail ? 1 : 0);
