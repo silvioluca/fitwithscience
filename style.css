@@ -842,6 +842,17 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .modal-head h3 { font-size: 17px; font-weight: 700; }
 .modal-close { margin-left: auto; }
 .modal-body { padding: 22px; overflow-y: auto; }
+
+/* Sessione live: barra timer fissa sotto l'intestazione della modale */
+#liveTimerBar {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  text-align: center;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
 .modal-foot {
   display: flex;
   justify-content: flex-end;
@@ -849,6 +860,8 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   padding: 16px 22px;
   border-top: 1px solid var(--border);
 }
+/* Wrapper opzionale: pulsanti centrati, stesso margine ai due lati */
+.modal-foot-center { display: flex; justify-content: center; gap: 10px; width: 100%; flex-wrap: wrap; }
 
 /* Exercise sub-blocks in workout modal — layout compatto */
 .ex-block {
@@ -1053,11 +1066,23 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .cmp-label { color: var(--text-soft); }
 .cmp-delta { font-weight: 700; text-align: right; }
 
+/* Pulsante "completa serie": cerchio pieno, solo icona */
+.live-set-btn {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: var(--emerald);
+  border-color: transparent;
+  color: #fff;
+  flex-shrink: 0;
+}
+.live-set-btn:hover { background: var(--emerald-dark); color: #fff; }
+.live-set-btn .ic { width: 17px; height: 17px; }
+
 /* Sessione live: barra avanzamento serie + input compatti su una riga */
-.live-prog { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-.live-prog .progress { flex: 1; height: 8px; display: block; }
+.live-prog { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.live-prog .progress { width: 64px; flex: none; height: 5px; display: block; }
 .live-prog .progress-fill { display: block; height: 100%; border-radius: 20px; transition: width .25s; }
-.live-prog-txt { font-size: 11.5px; color: var(--text-soft); white-space: nowrap; }
+.live-prog-txt { font-size: 10.5px; color: var(--text-soft); white-space: nowrap; }
 
 .live-grid { display: flex; gap: 8px; }
 .live-grid .field { flex: 1 1 0; min-width: 0; margin: 0; }

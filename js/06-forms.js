@@ -436,7 +436,7 @@ function liveDialog() {
   Modal.open({
     title: t('liveTitle'), wide: true,
     body: `
-      <div style="display:flex;gap:20px;justify-content:center;margin-bottom:14px;text-align:center">
+      <div id="liveTimerBar">
         <div><div class="stat-label">${t('liveElapsed')}</div><div style="font-size:26px;font-weight:800" id="liveElapsed">0:00</div></div>
         <div><div class="stat-label">${t('liveRestLbl')}</div><div style="font-size:26px;font-weight:800" id="liveRest">—</div></div>
       </div>
@@ -445,10 +445,15 @@ function liveDialog() {
         <div class="field"><input id="liveAddName" placeholder="${t('addExercise')}…"></div>
         <button type="button" class="btn-icon" id="liveAddBtn">${ic('plus')}</button>
       </div>`,
-    footer: `<button class="btn" id="liveDiscard" style="color:var(--red)">${ic('trash')} ${t('liveDiscard')}</button>
+    footer: `<div class="modal-foot-center">
+      <button class="btn" id="liveDiscard" style="color:var(--red)">${ic('trash')} ${t('liveDiscard')}</button>
       <button class="btn" onclick="Modal.close()">${t('close')}</button>
-      <button class="btn btn-blue" id="liveFinish">${ic('check')} ${t('liveFinish')}</button>`,
+      <button class="btn btn-blue" id="liveFinish">${ic('check')} ${t('liveFinish')}</button></div>`,
     onMount(root) {
+      // La barra timer esce da .modal-body (che scrolla) e diventa fissa
+      // sotto l'intestazione: resta visibile mentre si scorrono gli esercizi.
+      $('.modal-head', root).insertAdjacentElement('afterend', $('#liveTimerBar', root));
+
       const box = $('#liveExs', root);
 
       const draw = () => {
@@ -460,7 +465,7 @@ function liveDialog() {
                   <span class="progress"><span class="progress-fill" style="width:${e.total ? Math.round(e.done / e.total * 100) : 0}%;background:var(--blue)"></span></span>
                   <span class="live-prog-txt">${t('setProgress', e.done, e.total)}</span>
                 </span></div>
-              <button type="button" class="btn btn-sm btn-blue" data-set="${i}" ${e.done >= e.total ? 'disabled style="opacity:.45"' : ''}>${ic('check')} ${t('sets')}</button>
+              <button type="button" class="btn-icon live-set-btn" data-set="${i}" title="${t('sets')}" ${e.done >= e.total ? 'disabled style="opacity:.45"' : ''}>${ic('check')}</button>
             </div>
             <div class="live-grid">
               <div class="field"><label>${e.mode === 'time' ? t('durationS') : t('reps')}</label><input type="number" min="1" data-reps="${i}" value="${e.reps}"></div>

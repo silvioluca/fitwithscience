@@ -355,6 +355,10 @@ const Pages = {
           <button type="button" class="btn btn-sm btn-blue" id="explMake">${ic('dumbbell')} ${t('newWork')} (<span id="explCount">0</span>)</button>
         </div>
       </div>
+
+      <div class="mt" style="display:flex;justify-content:center">
+        <button class="btn" id="workShare" style="min-width:220px">${ic('share')} ${t('shareDay')}</button>
+      </div>
     </div>`;
   },
 
@@ -385,6 +389,7 @@ const Pages = {
     $('#btnAddW').onclick = () => workoutForm();
     $('#btnTemplates').onclick = () => templatesDialog();
     $('#btnLive').onclick = () => (typeof LIVE !== 'undefined' && LIVE ? liveDialog() : liveStartDialog());
+    $('#workShare').onclick = () => sharePeriodDialog(todayISO(), false);
 
     // Storico esercizio: dropdown degli esercizi svolti (con dati validi)
     {

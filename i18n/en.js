@@ -255,7 +255,7 @@ window.FWS_I18N.en = {
   tipCorr: 'Each point is a day: if points fall to the right, high-volume days leave you less recovered.',
   // Live session
   liveStart: 'Start session', liveResume: 'Resume session', liveTitle: 'Live session',
-  liveElapsed: 'Elapsed', liveRestLbl: 'Rest', liveFinish: 'Finish & save',
+  liveElapsed: 'Elapsed', liveRestLbl: 'Rest', liveFinish: 'Finish',
   liveEmpty: 'Empty session', liveFromTpl: 'From template', liveDone: 'Session saved: {0} min',
   livePr: 'New PR: {0}!', liveDiscard: 'Discard', liveNoSets: 'No sets completed',
   liveSetOf: 'set {0}/{1}',

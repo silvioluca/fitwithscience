@@ -255,7 +255,7 @@ window.FWS_I18N.it = {
   tipCorr: 'Ogni punto è un giorno: se i punti scendono verso destra, i giorni dopo tanto volume ti trovano meno recuperato.',
   // Sessione live
   liveStart: 'Avvia sessione', liveResume: 'Riprendi sessione', liveTitle: 'Sessione live',
-  liveElapsed: 'Durata', liveRestLbl: 'Recupero', liveFinish: 'Termina e salva',
+  liveElapsed: 'Durata', liveRestLbl: 'Recupero', liveFinish: 'Termina',
   liveEmpty: 'Sessione vuota', liveFromTpl: 'Da modello', liveDone: 'Sessione salvata: {0} min',
   livePr: 'Nuovo PR: {0}!', liveDiscard: 'Scarta', liveNoSets: 'Nessuna serie completata',
   liveSetOf: 'serie {0}/{1}',
