@@ -217,6 +217,9 @@ window.FWS_I18N.en = {
   tipZones: "Zones from heart-rate reserve (Karvonen): (HRmax − RHR) × % + RHR.",
   tipGirths: "Waist, chest and arm: the three most progress-telling girths.",
   tipImprove: "First ↔ last record comparison for the period; green = right direction.",
+  tipExHist: "Top weight and estimated 1RM (Epley) for every session you've done this exercise in.",
+  tipExplorer: "Exercise database with a short description: filter by group or search, then add them to a new workout.",
+  tipInsights: "Observations computed from your own data (session goal, protein, cardio, sleep, volume): not generic advice.",
   createDish: 'Create dish', dishName: 'Dish name', ingredients: 'Ingredients',
   addIngredient: 'Add ingredient', ingPh: 'Search food…',
   dishSaved: '"{0}" saved to the food database', minOneIng: 'At least one ingredient with grams is required',
@@ -262,4 +265,8 @@ window.FWS_I18N.en = {
   newTpl: 'New template',
   exHistCard: 'Exercise history', exHistSub: 'Top weight and estimated 1RM per session',
   setProgress: '{0} of {1} sets',
+  calMonthView: 'Month', calYearView: 'Year',
+  calSessions: 'Sessions', calVolume: 'Volume', calAvgKcal: 'Avg kcal', calDaysLogged: 'Days logged',
+  calAddWork: 'Add workout', calAddMeal: 'Add meal', calEmptyDay: 'No data for this day',
+  calYearSub: 'One square per day · intensity = workout + meals logged',
 };

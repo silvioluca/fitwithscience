@@ -376,6 +376,9 @@ function cardTips() {
     [t('fitnessAge')]: t('tipFitAge'), [t('hrZones')]: t('tipZones'),
     [t('rhrHistory')]: t('tipRhr'), [t('hrvHistory')]: t('tipHrv'),
     [t('keyGirths')]: t('tipGirths'), [t('pctImprove')]: t('tipImprove'),
+    [t('exHistCard')]: t('tipExHist'), [t('explTitle')]: t('tipExplorer'),
+    [t('weeklySets')]: t('tipWeeklySets'), [t('insTitle')]: t('tipInsights'),
+    [t('corrTitle')]: t('tipCorr'),
   };
 }
 

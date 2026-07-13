@@ -149,7 +149,7 @@ const Pages = {
 
       <div class="grid grid-2">
         <div class="card"><div class="card-head-row"><div><div class="card-title">${t('trendTime')}</div><div class="card-sub">${t('selectMeasure')}</div></div>
-          <select id="mMetric" class="table-search" style="width:auto">
+          <select id="mMetric" class="table-search">
             ${M_FIELDS.map(f => `<option value="${f.key}">${fl(f)}</option>`).join('')}
           </select></div>
           <div class="chart-wrap"><canvas id="chMeasure"></canvas></div></div>
@@ -337,26 +337,30 @@ const Pages = {
         <div id="wTable"></div>
       </div>
 
-      <div class="card mt">
-        <div class="card-head-row"><div><div class="card-title">${t('exHistCard')}</div><div class="card-sub">${t('exHistSub')}</div></div>
-          <select id="exHistSel" class="table-search" style="width:auto;max-width:230px"></select></div>
-        <div class="chart-wrap short"><canvas id="chExHistCard"></canvas></div>
+      <div class="card table-card mt">
+        <div class="table-toolbar"><div><div class="card-title">${t('exHistCard')}</div><div class="card-sub">${t('exHistSub')}</div></div>
+          <div class="spacer"><select id="exHistSel" class="table-search"></select></div></div>
+        <div class="expl-body-pad"><div class="chart-wrap short"><canvas id="chExHistCard"></canvas></div></div>
       </div>
 
-      <div class="card mt">
-        <div class="card-head-row"><div><div class="card-title">${t('explTitle')}</div><div class="card-sub">${t('explSub')}</div></div>
-          <input class="table-search" id="explSearch" placeholder="${t('searchMini')}"></div>
-        <div class="gpill-row" id="explPills" style="margin:6px 0 10px">
-          <button type="button" class="gpill active" data-g="">${t('all')}</button>
-          ${MUSCLE_GROUPS.filter(g => g.k !== 'Altro').map(g => `<button type="button" class="gpill" data-g="${g.k}">${gLabel(g)}</button>`).join('')}
-        </div>
-        <div class="expl-list" id="explList"></div>
-        <div class="dish-make-bar" id="explBar" style="display:none">
-          <button type="button" class="btn btn-sm btn-blue" id="explMake">${ic('dumbbell')} ${t('newWork')} (<span id="explCount">0</span>)</button>
+      <div class="card table-card mt">
+        <div class="table-toolbar"><div><div class="card-title">${t('explTitle')}</div><div class="card-sub">${t('explSub')}</div></div>
+          <div class="spacer">
+            <input class="table-search" id="explSearch" placeholder="${t('searchMini')}">
+            <select class="table-search" id="explGroupSel">
+              <option value="">${t('all')}</option>
+              ${MUSCLE_GROUPS.filter(g => g.k !== 'Altro').map(g => `<option value="${g.k}">${gLabel(g)}</option>`).join('')}
+            </select>
+          </div></div>
+        <div class="expl-body-pad">
+          <div class="expl-list" id="explList"></div>
+          <div class="dish-make-bar" id="explBar" style="display:none">
+            <button type="button" class="btn btn-sm btn-blue" id="explMake">${ic('dumbbell')} ${t('newWork')} (<span id="explCount">0</span>)</button>
+          </div>
         </div>
       </div>
 
-      <div class="mt" style="display:flex;justify-content:center">
+      <div class="mt bottom-share-wrap">
         <button class="btn" id="workShare" style="min-width:220px">${ic('share')} ${t('shareDay')}</button>
       </div>
     </div>`;
@@ -521,14 +525,14 @@ const Pages = {
           <div class="water-glasses">
             ${[...Array(g.waterGlasses)].map((_, i) => `<button class="water-glass ${i < water ? 'full' : ''}" data-water="${i + 1}">${ic('droplet')}</button>`).join('')}
           </div>
-          <div class="card-title mt" style="font-size:14px">${t('weekSummary')}</div>
+          <div class="card-title mt" style="font-size:14px;margin-bottom:14px">${t('weekSummary')}</div>
           <div class="chart-wrap short"><canvas id="chWeekKcal"></canvas></div>
         </div>
       </div>
 
       ${mealBlocks}
 
-      <div class="mt" style="display:flex;justify-content:center">
+      <div class="mt bottom-share-wrap">
         <button class="btn" id="foodShare" style="min-width:220px">${ic('share')} ${t('shareDay')}</button>
       </div>
     </div>`;
@@ -830,15 +834,25 @@ const Pages = {
           <span class="cal-title" id="calTitle"></span>
           <button class="btn-icon" id="calNext">›</button>
           <button class="btn btn-sm" id="calToday">${t('calToday')}</button>
+          <div class="mode-toggle" style="margin-left:6px">
+            <button type="button" class="mchip ${State.calView === 'month' ? 'active' : ''}" data-calview="month">${t('calMonthView')}</button>
+            <button type="button" class="mchip ${State.calView === 'year' ? 'active' : ''}" data-calview="year">${t('calYearView')}</button>
+          </div>
         </div>
       </div>
-      <div class="card">
+
+      <div class="card mt" id="calMonthCard">
         <div class="cal-weekdays" id="calWeekdays"></div>
         <div class="cal-grid" id="calGrid"></div>
         <div class="cal-legend">
           <span><span class="cal-dot w"></span>${t('qWorkout')}</span>
           <span><span class="cal-dot m"></span>${t('qMeal')}</span>
         </div>
+      </div>
+
+      <div class="card mt" id="calYearCard" style="display:none">
+        <div class="card-title">${t('calYearView')}</div><div class="card-sub">${t('calYearSub')}</div>
+        <div class="cal-year-scroll"><div class="cal-year-grid" id="calYearGrid"></div></div>
       </div>
     </div>`;
   },
@@ -867,7 +881,7 @@ const Pages = {
       const cells = [];
       for (let i = 0; i < 42; i++) {
         const d = new Date(y, mo - 1, 1 - firstDow + i);
-        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const iso = isoOf(d);
         const inMonth = d.getMonth() === mo - 1;
         const nW = (wByDate[iso] || []).length;
         const kcal = Math.round(kcalByDate[iso] || 0);
@@ -885,10 +899,59 @@ const Pages = {
       $$('#calGrid [data-day]').forEach(c => c.onclick = () => { if (c.dataset.day) calendarDayDialog(c.dataset.day); });
     };
 
+    /* Vista anno: heatmap stile GitHub, 371 giorni fino a oggi, colonne = settimane */
+    const drawYear = () => {
+      const today = new Date();
+      const end = new Date(today); end.setDate(end.getDate() + ((7 - ((end.getDay() + 6) % 7) - 1))); // fine della settimana corrente
+      const start = new Date(end); start.setDate(start.getDate() - 371); // 53 settimane
+      const startMon = new Date(start); startMon.setDate(startMon.getDate() - ((startMon.getDay() + 6) % 7));
+
+      const wByDate = {}, kcalByDate = {};
+      Store.data.workouts.forEach(w => { wByDate[w.date] = (wByDate[w.date] || 0) + 1; });
+      Store.data.meals.forEach(m => { kcalByDate[m.date] = (kcalByDate[m.date] || 0) + m.kcal; });
+
+      const days = [];
+      for (let d = new Date(startMon); d <= end; d.setDate(d.getDate() + 1)) days.push(new Date(d));
+
+      const cellsHTML = days.map(d => {
+        const iso = isoOf(d);
+        const score = (wByDate[iso] ? 1 : 0) + (kcalByDate[iso] > 0 ? 1 : 0); // 0..2
+        const future = d > today;
+        return `<span class="cal-year-cell lvl${future ? '' : score}" title="${future ? '' : fmtDate(iso)}" data-day="${future ? '' : iso}"></span>`;
+      }).join('');
+
+      // etichette mese: una per ogni prima settimana che contiene il giorno 1
+      const weeks = Math.ceil(days.length / 7);
+      const monthLabels = [];
+      for (let w = 0; w < weeks; w++) {
+        const d = days[w * 7];
+        if (d.getDate() <= 7) monthLabels.push({ w, label: d.toLocaleDateString(locale(), { month: 'short' }) });
+      }
+      const labelsHTML = monthLabels.map(m => `<span style="grid-column:${m.w + 1}">${m.label}</span>`).join('');
+
+      $('#calYearGrid').innerHTML = `
+        <div class="cal-year-months">${labelsHTML}</div>
+        <div class="cal-year-cells" style="grid-template-columns:repeat(${weeks}, 1fr)">${cellsHTML}</div>`;
+
+      $$('#calYearGrid [data-day]').forEach(c => c.onclick = () => { if (c.dataset.day) calendarDayDialog(c.dataset.day); });
+    };
+
+    const applyView = () => {
+      $('#calMonthCard').style.display = State.calView === 'month' ? '' : 'none';
+      $('#calYearCard').style.display = State.calView === 'year' ? '' : 'none';
+      if (State.calView === 'year') drawYear(); else draw();
+    };
+
+    $$('[data-calview]').forEach(b => b.onclick = () => {
+      State.calView = b.dataset.calview;
+      $$('[data-calview]').forEach(x => x.classList.toggle('active', x === b));
+      applyView();
+    });
+
     $('#calPrev').onclick = () => { State.calMonth = shiftMonth(State.calMonth, -1); draw(); };
     $('#calNext').onclick = () => { State.calMonth = shiftMonth(State.calMonth, 1); draw(); };
     $('#calToday').onclick = () => { State.calMonth = todayISO().slice(0, 7); draw(); };
-    draw();
+    applyView();
   },
 
   /* ------------------------------------------------ PROGRESSI */

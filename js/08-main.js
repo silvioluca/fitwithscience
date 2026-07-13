@@ -425,8 +425,8 @@ function floatingActionsTick() {
   const head = $('#content .page-head');
   const actions = head && $('.actions', head);
   if (!actions) return;
-  // i filtri (chip) restano nell'header; le quick-actions ora flottano come FAB
-  if (actions.classList.contains('chip-row')) { actions.classList.remove('floating'); return; }
+  // i filtri (chip, navigazione calendario) restano nell'header; solo le vere azioni flottano
+  if (actions.classList.contains('chip-row') || actions.classList.contains('cal-head')) { actions.classList.remove('floating'); return; }
   const mobile = window.innerWidth <= 768;
   const out = head.getBoundingClientRect().bottom < 64; // sotto la topbar
   actions.classList.toggle('floating', mobile && out);
@@ -446,7 +446,7 @@ function initNav() {
    ROUTER / BOOT
    ===================================================================== */
 const PAGE_NAMES = ['dashboard', 'misure', 'allenamento', 'alimentazione', 'riposo', 'salute', 'calendario', 'progressi'];
-const State = { page: 'dashboard', foodDate: todayISO(), range: 0, calMonth: todayISO().slice(0, 7) };
+const State = { page: 'dashboard', foodDate: todayISO(), range: 0, calMonth: todayISO().slice(0, 7), calView: 'month' };
 
 const Router = {
   go(page) {

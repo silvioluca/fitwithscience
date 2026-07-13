@@ -210,7 +210,7 @@ function workoutForm(existing = null, fromTemplate = null) {
   const body = `
     <div class="form-grid">
       <div class="field full"><label>${t('workName')} *</label><input id="fwName" data-req value="${esc(w.name)}" placeholder="${t('phWorkName')}"><div class="err-msg">${t('required')}</div></div>
-      <div class="field"><label>${t('date')} *</label><input type="date" id="fwDate" data-req value="${existing?.date || todayISO()}" max="${todayISO()}"><div class="err-msg">${t('required')}</div></div>
+      <div class="field"><label>${t('date')} *</label><input type="date" id="fwDate" data-req value="${existing?.date || fromTemplate?.date || todayISO()}" max="${todayISO()}"><div class="err-msg">${t('required')}</div></div>
       <div class="field"><label>${t('muscleGroup')}</label>
         <select id="fwGroup">${['Upper Body', 'Lower Body', 'Full Body', 'Push', 'Pull', 'Legs', 'Altro'].map(g => `<option ${w.group === g ? 'selected' : ''}>${g}</option>`).join('')}</select></div>
       <div class="field"><label>${t('durationMin')}</label><input type="number" min="0" id="fwDur" value="${w.duration}"></div>
@@ -319,11 +319,7 @@ function initExerciseExplorer() {
     $$('[data-hist]', listEl).forEach(b => b.onclick = () => exerciseHistoryDialog(b.dataset.hist));
   };
 
-  $$('#explPills .gpill').forEach(p => p.onclick = () => {
-    group = p.dataset.g || null;
-    $$('#explPills .gpill').forEach(x => x.classList.toggle('active', x === p));
-    drawList();
-  });
+  $('#explGroupSel').onchange = () => { group = $('#explGroupSel').value || null; drawList(); };
   $('#explSearch').oninput = drawList;
 
   $('#explMake').onclick = () => {
@@ -474,13 +470,34 @@ function liveDialog() {
             </div>
           </div>`).join('') : `<div class="empty-state" style="padding:14px"><p>${t('addExercise')}</p></div>`;
 
+        // Aggiornamento mirato della singola riga: un draw() completo qui
+        // ricreerebbe l'intero innerHTML di #liveExs, facendo ripartire
+        // l'animazione d'ingresso di OGNI blocco (da cui l'effetto "sparisce
+        // e si ricrea" a ogni tap). Si tocca solo la riga interessata.
+        const updateSetUI = i => {
+          const e = LIVE.exs[i];
+          const row = box.children[i];
+          if (!row) { draw(); return; } // struttura cambiata: rifallback sicuro
+          const fill = row.querySelector('.progress-fill');
+          const txt = row.querySelector('.live-prog-txt');
+          const btn = row.querySelector('[data-set]');
+          if (fill) fill.style.width = (e.total ? Math.round(e.done / e.total * 100) : 0) + '%';
+          if (txt) txt.textContent = t('setProgress', e.done, e.total);
+          if (btn) {
+            const full = e.done >= e.total;
+            btn.disabled = full;
+            btn.style.opacity = full ? '.45' : '';
+          }
+        };
+
         $$('[data-set]', box).forEach(b => b.onclick = () => {
-          const e = LIVE.exs[Number(b.dataset.set)];
+          const i = Number(b.dataset.set);
+          const e = LIVE.exs[i];
           if (e.done >= e.total) return;
           e.done++;
           LIVE.restEnd = Date.now() + e.rest * 1000; // il recupero parte al set completato
           if (navigator.vibrate) navigator.vibrate(30);
-          draw();
+          updateSetUI(i);
         });
         $$('[data-reps]', box).forEach(inp => inp.oninput = () => { LIVE.exs[Number(inp.dataset.reps)].reps = Number(inp.value) || 1; });
         $$('[data-w]', box).forEach(inp => inp.oninput = () => { LIVE.exs[Number(inp.dataset.w)].weight = Number(inp.value) || 0; });
@@ -511,7 +528,16 @@ function liveDialog() {
         const rest = $('#liveRest');
         const left = Math.ceil((LIVE.restEnd - Date.now()) / 1000);
         if (left > 0) { rest.textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0'); rest.style.color = 'var(--amber)'; }
-        else if (LIVE.restEnd && left > -2) { rest.textContent = '0:00'; rest.style.color = 'var(--emerald)'; if (left === 0 && navigator.vibrate) navigator.vibrate([80, 60, 80]); }
+        else if (LIVE.restEnd && left > -3) {
+          rest.textContent = '0:00'; rest.style.color = 'var(--emerald)';
+          // Vibra una sola volta per recupero: confronta col timestamp già
+          // notificato invece di pretendere left===0 esatto — con setInterval
+          // (specie a schermo spento) quel singolo tick può saltare.
+          if (LIVE.restVibratedFor !== LIVE.restEnd) {
+            LIVE.restVibratedFor = LIVE.restEnd;
+            if (navigator.vibrate) navigator.vibrate([120, 80, 120, 80, 200]);
+          }
+        }
         else { rest.textContent = '—'; rest.style.color = ''; }
       };
       LIVE.iv = setInterval(tick, 1000);
@@ -648,7 +674,7 @@ async function searchOpenFoodFacts(query) {
   }).filter(fd => fd.name && fd.kcal > 0);
 }
 
-function foodForm(existing = null, mealKey = 'Colazione') {
+function foodForm(existing = null, mealKey = 'Colazione', forceDate = null) {
   const f = existing || { name: '', qty: '', kcal: '', protein: '', carbs: '', fat: '' };
   // qty può essere "80 g" oppure "10 pz (12 g)" → i grammi sono tra parentesi
   const parseGrams = q => { const m = /\((\d+(?:[.,]\d+)?)\s*g\)/.exec(q || ''); return m ? parseFloat(m[1].replace(',', '.')) : (parseFloat(q) || ''); };
@@ -789,7 +815,7 @@ function foodForm(existing = null, mealKey = 'Colazione') {
         const grams = Number(gramsInp.value) || 0;
         const count = per100?.unitG ? Number(countInp.value) || 0 : 0;
         const rec = {
-          id: existing?.id || uid(), date: existing?.date || State.foodDate,
+          id: existing?.id || uid(), date: existing?.date || forceDate || State.foodDate,
           meal: $('#ffMeal', root).value, name: nameInp.value.trim(),
           qty: count ? `${count} pz (${grams} g)` : (grams ? `${grams} g` : '—'),
           kcal: Number($('#ffKcal', root).value), protein: Number($('#ffP', root).value) || 0,
@@ -949,11 +975,18 @@ function calendarDayDialog(iso) {
   const meals = Stats.mealsFor(iso);
   const mac = Stats.dayMacros(iso);
 
+  const goWorkout = () => { Modal.close(); setTimeout(() => workoutForm(null, { name: '', group: '', duration: 60, notes: '', exercises: [{}], date: iso }), 300); };
+  const goMeal = () => { Modal.close(); setTimeout(() => foodForm(null, 'Colazione', iso), 300); };
+
   const workHTML = works.length ? works.map(w => `<div class="list-row">
       <div class="list-ico ico-blue">${ic('dumbbell')}</div>
       <div class="list-main"><b>${esc(w.name)}</b><span>${w.exercises.length} ${t('exercises')} · ${w.duration} min</span></div>
       <div class="list-end"><b>${Math.round(Stats.workoutVolume(w)).toLocaleString(locale())} kg</b></div>
-    </div>`).join('') : `<div class="empty-state" style="padding:12px"><p>${t('noWork')}</p></div>`;
+    </div>`).join('')
+    : `<div class="empty-state" style="padding:12px 12px 16px">
+        <p style="margin-bottom:10px">${t('noWork')}</p>
+        <button class="btn btn-sm btn-blue" id="cdAddWork">${ic('plus')} ${t('calAddWork')}</button>
+      </div>`;
 
   const mealHTML = meals.length ? MEAL_KEYS.map(mk => {
     const foods = meals.filter(m => m.meal === mk);
@@ -961,7 +994,11 @@ function calendarDayDialog(iso) {
     const kcal = Math.round(foods.reduce((tt, f) => tt + f.kcal, 0));
     return `<div style="margin-bottom:8px"><b style="font-size:13px">${mealLabel(mk)}</b> <span class="badge badge-emerald">${kcal} kcal</span>
       <div style="font-size:12.5px;color:var(--text-soft);margin-top:2px">${foods.map(f => esc(f.name)).join(' · ')}</div></div>`;
-  }).join('') : `<div class="empty-state" style="padding:12px"><p>${t('noFood')}</p></div>`;
+  }).join('')
+    : `<div class="empty-state" style="padding:12px 12px 16px">
+        <p style="margin-bottom:10px">${t('noFood')}</p>
+        <button class="btn btn-sm btn-amber" id="cdAddMeal">${ic('plus')} ${t('calAddMeal')}</button>
+      </div>`;
 
   Modal.open({
     title: fmtDate(iso),
@@ -973,9 +1010,10 @@ function calendarDayDialog(iso) {
       ${mealHTML}`,
     footer: (works.length || meals.length) ? `<button class="btn btn-primary" id="cdShare">${ic('share')} ${t('share')}</button>` : null,
     onMount(root) {
-      const btn = $('#cdShare', root);
-      if (!btn) return;
-      btn.onclick = () => sharePeriodDialog(iso, false); // toggle Giorno/Settimana
+      const share = $('#cdShare', root);
+      if (share) share.onclick = () => sharePeriodDialog(iso, false); // toggle Giorno/Settimana
+      const aw = $('#cdAddWork', root); if (aw) aw.onclick = goWorkout;
+      const am = $('#cdAddMeal', root); if (am) am.onclick = goMeal;
     },
   });
 }

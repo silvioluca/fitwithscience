@@ -217,6 +217,9 @@ window.FWS_I18N.it = {
   tipZones: "Zone dalla riserva cardiaca (Karvonen): (HRmax − RHR) × % + RHR.",
   tipGirths: "Vita, petto e braccio: le tre circonferenze più indicative dei progressi.",
   tipImprove: "Confronto primo ↔ ultimo rilevamento del periodo; verde = direzione giusta.",
+  tipExHist: "Peso massimo e 1RM stimato (Epley) per ogni sessione in cui hai fatto questo esercizio.",
+  tipExplorer: "Database di esercizi con descrizione breve: filtra per gruppo o cerca, poi aggiungili a un nuovo allenamento.",
+  tipInsights: "Osservazioni calcolate dai tuoi dati (obiettivo sessioni, proteine, cardio, sonno, volume): non consigli generici.",
   createDish: 'Crea piatto', dishName: 'Nome piatto', ingredients: 'Ingredienti',
   addIngredient: 'Aggiungi ingrediente', ingPh: 'Cerca alimento…',
   dishSaved: '"{0}" salvato nel database alimenti', minOneIng: 'Serve almeno un ingrediente con grammatura',
@@ -262,4 +265,8 @@ window.FWS_I18N.it = {
   newTpl: 'Nuovo modello',
   exHistCard: 'Storico esercizio', exHistSub: 'Peso massimo e 1RM stimato per sessione',
   setProgress: '{0} di {1} serie',
+  calMonthView: 'Mese', calYearView: 'Anno',
+  calSessions: 'Sessioni', calVolume: 'Volume', calAvgKcal: 'Kcal medie', calDaysLogged: 'Giorni loggati',
+  calAddWork: 'Aggiungi allenamento', calAddMeal: 'Aggiungi pasto', calEmptyDay: 'Nessun dato per questo giorno',
+  calYearSub: 'Un quadratino per giorno · intensità = allenamento + pasti loggati',
 };

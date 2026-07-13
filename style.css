@@ -511,7 +511,11 @@ body.auth-locked .auth-screen { display: flex; }
 .card:hover { box-shadow: var(--shadow-lg); z-index: 60; }
 .card-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
 .card-sub { font-size: 12.5px; color: var(--text-soft); margin-bottom: 14px; }
-.card-head-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+/* Stesso distacco dal contenuto sottostante (chart/lista/select) che si
+   ottiene col solo title+sub: senza questo, le card con un select o un
+   badge nell'header (via card-head-row) restavano "attaccate" al chart-wrap. */
+.card-head-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.card-head-row .card-sub { margin-bottom: 0; } /* il gap lo dà già la riga: niente doppio margine */
 
 .grid { display: grid; gap: 18px; }
 .grid-stats { grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); }
@@ -1089,7 +1093,9 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .live-grid .field label { font-size: 10px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; }
 .live-grid .field input { height: 34px; font-size: 13px; padding: 0 8px; }
 
-/* Esploratore esercizi (sezione inline in Allenamento) */
+/* Esploratore esercizi (sezione inline in Allenamento) — stessa struttura
+   toolbar+spacer delle tabelle, per coerenza visiva con le altre card */
+.expl-body-pad { padding: 20px; }
 .expl-list { max-height: 340px; overflow-y: auto; }
 .expl-list .list-row { transition: background .15s, box-shadow .15s; }
 .expl-list .list-row.msel-on {
@@ -1130,6 +1136,8 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   white-space: nowrap;
   padding: 0 10px;
 }
+
+.bottom-share-wrap { display: flex; justify-content: center; }
 
 /* Autocomplete alimenti */
 .fs-wrap { position: relative; }
@@ -1211,9 +1219,42 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .cal-legend { display: flex; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--text-soft); align-items: center; }
 .cal-legend .cal-dot { display: inline-block; margin-right: 5px; vertical-align: middle; }
 
+.cal-head .mode-toggle { flex-shrink: 0; }
+
+/* Vista anno: heatmap stile GitHub (53 settimane × 7 giorni) */
+.cal-year-scroll { overflow-x: auto; padding-bottom: 4px; }
+.cal-year-grid { min-width: 640px; }
+.cal-year-months {
+  display: grid;
+  grid-auto-flow: column;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+  height: 14px;
+}
+.cal-year-cells {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 1fr);
+  gap: 3px;
+}
+.cal-year-cell {
+  width: 11px; height: 11px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.cal-year-cell:hover { outline: 1.5px solid var(--text-soft); }
+.cal-year-cell.lvl0 { background: var(--surface-2); }
+.cal-year-cell.lvl1 { background: var(--emerald); opacity: .4; border-color: transparent; }
+.cal-year-cell.lvl2 { background: var(--emerald); opacity: 1; border-color: transparent; }
+.cal-year-cell[data-day=""] { cursor: default; opacity: .15; }
+
 @media (max-width: 600px) {
   .cal-cell { min-height: 56px; padding: 4px 5px; border-radius: 9px; }
   .cal-kcal { display: none; }
+  .cal-head { flex-wrap: wrap; row-gap: 8px; }
 }
 
 /* Skeleton loading */
@@ -1282,6 +1323,34 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   /* spazio per bottom-nav + barra azioni flottante: l'ultimo contenuto resta raggiungibile */
   .content { padding: 18px 14px calc(150px + env(safe-area-inset-bottom)); }
 
+  /* Storico allenamenti: ricerca e pulsante CSV restano sulla stessa riga,
+     insieme occupano tutta la larghezza della card (padding 20px già dato
+     da .table-toolbar) — la ricerca si allarga, il pulsante resta compatto. */
+  .table-toolbar:has(#wSearch) .spacer { width: 100%; flex-wrap: nowrap; }
+  #wSearch { flex: 1 1 0; min-width: 0; width: auto; }
+  #wCsv { flex: none; }
+
+  /* Storico esercizio: il select occupa tutta la larghezza della card
+     (è l'unico elemento della riga dopo che titolo/sottotitolo vanno a capo). */
+  .table-toolbar:has(#exHistSel) .spacer { width: 100%; }
+  #exHistSel { width: 100%; }
+
+  /* Esploratore esercizi: cerca e filtro restano affiancati su una riga sola,
+     ma insieme occupano tutta la larghezza della card. */
+  .table-toolbar:has(#explSearch) .spacer { width: 100%; }
+  #explSearch, #explGroupSel { flex: 1 1 0; min-width: 0; width: auto; }
+
+  /* Sui tre casi sopra, ricerca/select vanno ormai sempre a capo sotto il
+     titolo: lo spazio extra riservato all'icona ⓘ in alto a destra non
+     serve più (nulla condivide più la riga con lei) — torna simmetrico
+     20/20 come il lato sinistro, ed elimina il disallineamento tra la
+     card "Storico esercizio" (card-head-row) e le altre (table-toolbar). */
+  .card:has(> .info-tip.card-corner) > .card-head-row,
+  .card:has(> .info-tip.card-corner) .table-toolbar,
+  .card.table-card:has(> .info-tip.card-corner) .table-toolbar {
+    padding-right: 20px;
+  }
+
   /* Header con pulsante marcato: griglia esplicita 2 colonne,
      l'act-break occupa l'intera seconda riga. Niente giochi di flex-basis. */
   .page-head .actions:not(.floating):has(.act-break) {
@@ -1306,7 +1375,9 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     flex-wrap: nowrap;
     gap: 10px;
     animation: fadeUp .2s ease;
+    pointer-events: none; /* il contenitore lascia passare i click */
   }
+  .page-head .actions.floating > * { pointer-events: auto; } /* solo i cerchi li ricevono */
   .page-head .actions.floating .act-break { flex: none; width: 50px; order: 9; }
   /* Velo sfocato discreto: pieno in basso, svanisce salendo */
   .page-head .actions.floating::before {
