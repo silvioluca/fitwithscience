@@ -179,7 +179,7 @@ function renderAuthScreen() {
   scr.innerHTML = `
     <div class="auth-card">
       <div class="auth-brand">
-        <div class="brand-logo">FS</div>
+        <div class="brand-logo"><img src="assets/icon-192.png" alt=""></div>
         <div><h1>Fit with Science</h1><p>${t('appTagline')}</p></div>
       </div>
 

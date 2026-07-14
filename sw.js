@@ -9,14 +9,16 @@
 
 'use strict';
 
-const VERSION = 'fws-v3';
+const VERSION = 'fws-v4';
 
 const ASSETS = [
   './',
   './index.html',
   './style.css',
   './manifest.webmanifest',
-  './icon.svg',
+  './assets/icon-192.png',
+  './assets/icon-512.png',
+  './assets/icon-512-maskable.png',
   './foods-db.js',
   './exercises-db.js',
   './i18n/it.js',
