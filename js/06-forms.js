@@ -387,6 +387,18 @@ function exerciseHistoryDialog(name) {
    alla fine la sessione diventa un allenamento salvato (con PR detection)
    ===================================================================== */
 let LIVE = null; // { startedAt, name, exs:[{name,group,reps,weight,rest,rpe,mode,total,done}], restEnd, iv }
+let liveWakeLock = null;
+// A schermo spento il browser sospende i timer JS: senza tenere lo schermo
+// acceso durante la sessione live, il countdown del recupero non gira e la
+// vibrazione non può scattare in tempo reale (arriverebbe solo al risveglio).
+async function acquireLiveWakeLock() {
+  if (!navigator.wakeLock || liveWakeLock) return;
+  try { liveWakeLock = await navigator.wakeLock.request('screen'); liveWakeLock.addEventListener('release', () => { liveWakeLock = null; }); }
+  catch { liveWakeLock = null; }
+}
+function releaseLiveWakeLock() {
+  if (liveWakeLock) { liveWakeLock.release().catch(() => {}); liveWakeLock = null; }
+}
 
 function liveStartDialog() {
   const tpls = Store.data.templates;
@@ -522,7 +534,7 @@ function liveDialog() {
       // timer: durata sessione + countdown recupero (vibra allo zero)
       const tick = () => {
         const el = $('#liveElapsed');
-        if (!el) { clearInterval(LIVE?.iv); document.removeEventListener('visibilitychange', onVisible); return; } // modale chiusa
+        if (!el) { clearInterval(LIVE?.iv); document.removeEventListener('visibilitychange', onVisible); releaseLiveWakeLock(); return; } // modale chiusa
         const s = Math.floor((Date.now() - LIVE.startedAt) / 1000);
         el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
         const rest = $('#liveRest');
@@ -543,14 +555,16 @@ function liveDialog() {
         }
         else { rest.textContent = '—'; rest.style.color = ''; }
       };
-      // al ritorno in foreground (sblocco schermo) forza subito un tick: non
-      // aspettare il prossimo giro da 1s per far scattare la vibrazione "in ritardo".
-      const onVisible = () => { if (!document.hidden) tick(); };
+      // al ritorno in foreground (sblocco schermo) forza subito un tick e
+      // ri-acquisisce il wake lock: il browser lo rilascia automaticamente
+      // quando la scheda va in background, va richiesto di nuovo al ritorno.
+      const onVisible = () => { if (!document.hidden) { tick(); acquireLiveWakeLock(); } };
       document.addEventListener('visibilitychange', onVisible);
+      acquireLiveWakeLock();
       LIVE.iv = setInterval(tick, 1000);
       tick();
 
-      $('#liveDiscard', root).onclick = () => { clearInterval(LIVE.iv); document.removeEventListener('visibilitychange', onVisible); LIVE = null; Modal.close(); Router.render(); };
+      $('#liveDiscard', root).onclick = () => { clearInterval(LIVE.iv); document.removeEventListener('visibilitychange', onVisible); releaseLiveWakeLock(); LIVE = null; Modal.close(); Router.render(); };
 
       $('#liveFinish', root).onclick = () => {
         const done = LIVE.exs.filter(e => e.done > 0);
@@ -579,6 +593,7 @@ function liveDialog() {
 
         clearInterval(LIVE.iv);
         document.removeEventListener('visibilitychange', onVisible);
+        releaseLiveWakeLock();
         LIVE = null;
         Modal.close();
         Toast.show(t('liveDone', duration));
