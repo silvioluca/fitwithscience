@@ -147,7 +147,7 @@ ok('share: durata in secondi per il plank', shareTxt.includes('3×60s'));
   ok('merge: updatedAt rigenerato', m.updatedAt > 200);
 }
 
-/* ---------- weightMA7 / estTdee / weeklySets / suggestNextLoad / corr ---------- */
+/* ---------- weightMA7 / weeklySets / suggestNextLoad / corr ---------- */
 {
   // media mobile: pesate a 1 giorno di distanza → media della finestra
   Store.data.measurements = [
@@ -156,29 +156,6 @@ ok('share: durata in secondi per il plank', shareTxt.includes('3×60s'));
     { id: 'c', date: daysAgo(0), weight: 85 },
   ];
   eq('weightMA7: media della finestra', Stats.weightMA7(), [84, 85, 85]);
-
-  // TDEE: 14 giorni a 2400 kcal, peso stabile → TDEE ≈ 2400
-  Store.data.meals = [];
-  for (let i = 0; i < 14; i++) Store.data.meals.push({ id: 'td' + i, date: daysAgo(i), meal: 'Pranzo', name: 'X', qty: '—', kcal: 2400, protein: 0, carbs: 0, fat: 0 });
-  Store.data.measurements = [
-    { id: 't1', date: daysAgo(13), weight: 85 },
-    { id: 't2', date: daysAgo(7), weight: 85 },
-    { id: 't3', date: daysAgo(0), weight: 85 },
-  ];
-  const td = Stats.estTdee();
-  ok('estTdee: presente con dati sufficienti', td != null);
-  eq('estTdee: peso stabile → TDEE = intake', td.tdee, 2400);
-  // deficit: −0.5 kg/settimana ≈ −550 kcal/giorno → TDEE ≈ intake + 550
-  Store.data.measurements = [
-    { id: 'u1', date: daysAgo(14), weight: 86 },
-    { id: 'u2', date: daysAgo(0), weight: 85 },
-  ];
-  const td2 = Stats.estTdee();
-  ok('estTdee: in deficit TDEE > intake', td2.tdee > 2800 && td2.tdee < 3050);
-
-  // dati insufficienti → null
-  Store.data.meals = Store.data.meals.slice(0, 5);
-  eq('estTdee: pochi giorni → null', Stats.estTdee(), null);
 
   // serie settimanali per gruppo
   Store.data.workouts = [
@@ -211,6 +188,98 @@ ok('share: durata in secondi per il plank', shareTxt.includes('3×60s'));
   const { pts, r } = corrVolumeReadiness();
   ok('corr: abbastanza punti', pts.length >= 5);
   ok('corr: r negativa attesa', r != null && r < 0);
+}
+
+/* ---------- exerciseTrends: crescita vs stallo, ordinamento ---------- */
+{
+  Store.data.workouts = [];
+  const dates = [daysAgo(60), daysAgo(50), daysAgo(40)]; // 3 sessioni, dal più vecchio al più recente (span 20gg)
+  dates.forEach((d, i) => Store.data.workouts.push({
+    id: 'tr' + i, date: d, name: 'T', group: 'X', duration: 60,
+    exercises: [
+      { id: 'g' + i, name: 'Bench Grow', group: 'Petto', mode: 'reps', sets: 3, reps: 5, weight: 80 + i * 5, rest: 90, rpe: 8 },
+      { id: 's' + i, name: 'Curl Stall', group: 'Bicipiti', mode: 'reps', sets: 3, reps: 10, weight: 20, rest: 60, rpe: 8 },
+    ],
+  }));
+  const trends = Stats.exerciseTrends();
+  const grow = trends.find(x => x.name === 'Bench Grow');
+  const stall = trends.find(x => x.name === 'Curl Stall');
+  eq('exerciseTrends: pesi crescenti → trend up', grow.trend, 'up');
+  eq('exerciseTrends: peso costante → trend flat', stall.trend, 'flat');
+  ok('exerciseTrends: ordina stallo/calo prima della crescita', trends.indexOf(stall) < trends.indexOf(grow));
+  eq('exerciseTrends: conta le sessioni', grow.sessions, 3);
+}
+
+/* ---------- repRangeDistribution ---------- */
+{
+  Store.data.workouts = [{
+    id: 'rr1', date: todayISO(), name: 'T', group: 'X', duration: 60,
+    exercises: [
+      { id: 'r1', name: 'Squat', group: 'Gambe', mode: 'reps', sets: 4, reps: 3, weight: 100, rest: 120, rpe: 9 },
+      { id: 'r2', name: 'Panca', group: 'Petto', mode: 'reps', sets: 3, reps: 8, weight: 60, rest: 90, rpe: 8 },
+      { id: 'r3', name: 'Curl', group: 'Bicipiti', mode: 'reps', sets: 2, reps: 15, weight: 15, rest: 60, rpe: 8 },
+      { id: 'r4', name: 'Plank', group: 'Core', mode: 'time', sets: 3, reps: 60, weight: 0, rest: 60, rpe: 7 },
+    ],
+  }];
+  eq('repRangeDistribution: esclude gli esercizi a durata', Stats.repRangeDistribution(), { strength: 4, hypertrophy: 3, endurance: 2 });
+}
+
+/* ---------- trainingMonotony: bucketing settimanale + formula Foster ---------- */
+{
+  Store.data.workouts = [];
+  const planVol = [500, 600, 700, 800, 900, 1000, 1100, 1200]; // indice = settimane fa (0=recente)
+  planVol.forEach((v, w) => Store.data.workouts.push({
+    id: 'mono' + w, date: daysAgo(w * 7 + 3), name: 'M', group: 'X', duration: 60,
+    exercises: [{ id: 'me' + w, name: 'Ex', group: 'Gambe', mode: 'reps', sets: 1, reps: 1, weight: v, rest: 90, rpe: 8 }],
+  }));
+  const mono = Stats.trainingMonotony();
+  eq('trainingMonotony: bucketing settimanale corretto (vecchio→recente)', mono.weeks, [1200, 1100, 1000, 900, 800, 700, 600, 500]);
+  eq('trainingMonotony: media', mono.mean, 850);
+  eq('trainingMonotony: monotonia (Foster)', mono.monotony, 3.7);
+  eq('trainingMonotony: livello alto oltre soglia 2', mono.level, 'high');
+  eq('trainingMonotony: dati insufficienti → null', (() => { Store.data.workouts = []; return Stats.trainingMonotony(); })(), null);
+}
+
+/* ---------- proteinPerKg / mealProteinSplit / dietAdherenceStreak ---------- */
+{
+  Store.data.measurements = [{ id: 'pw', date: daysAgo(1), weight: 80 }];
+  Store.data.meals = [{ id: 'pp1', date: todayISO(), meal: 'Pranzo', name: 'X', qty: '—', kcal: 500, protein: 160, carbs: 0, fat: 0 }];
+  eq('proteinPerKg: proteine/peso più recente', Stats.proteinPerKg(todayISO()), 2);
+  eq('proteinPerKg: senza misurazioni → null', (() => { const bak = Store.data.measurements; Store.data.measurements = []; const r = Stats.proteinPerKg(); Store.data.measurements = bak; return r; })(), null);
+
+  Store.data.meals = [
+    { id: 'sp1', date: daysAgo(1), meal: 'Colazione', name: 'A', qty: '—', kcal: 100, protein: 20, carbs: 0, fat: 0 },
+    { id: 'sp2', date: daysAgo(2), meal: 'Colazione', name: 'B', qty: '—', kcal: 100, protein: 30, carbs: 0, fat: 0 },
+    { id: 'sp3', date: daysAgo(3), meal: 'Colazione', name: 'C', qty: '—', kcal: 100, protein: 40, carbs: 0, fat: 0 },
+  ];
+  eq('mealProteinSplit: media sui soli giorni loggati', Stats.mealProteinSplit(7).Colazione, 30);
+  eq('mealProteinSplit: pasto mai loggato → 0', Stats.mealProteinSplit(7).Cena, 0);
+
+  Store.data.goals.kcal = 2000;
+  Store.data.meals = [
+    { id: 'ad1', date: daysAgo(1), meal: 'Pranzo', name: 'X', qty: '—', kcal: 2050, protein: 0, carbs: 0, fat: 0 }, // +2.5%, ok
+    { id: 'ad2', date: daysAgo(2), meal: 'Pranzo', name: 'X', qty: '—', kcal: 2500, protein: 0, carbs: 0, fat: 0 }, // +25%, rompe lo streak
+  ];
+  eq('dietAdherenceStreak: si ferma al primo giorno fuori tolleranza', Stats.dietAdherenceStreak(), 1);
+}
+
+/* ---------- leanMassSeries / weightPaceClass ---------- */
+{
+  Store.data.measurements = [
+    { id: 'lm1', date: daysAgo(1), weight: 80, bodyFat: 20 },
+    { id: 'lm2', date: daysAgo(0), weight: 79, bodyFat: null },
+  ];
+  const lean = Stats.leanMassSeries();
+  eq('leanMassSeries: solo le misurazioni con massa grassa', lean.length, 1);
+  eq('leanMassSeries: peso × (1 − %grasso)', lean[0].lean, 64);
+
+  Store.data.measurements = [
+    { id: 'wp1', date: daysAgo(7), weight: 85 },
+    { id: 'wp2', date: daysAgo(0), weight: 84 },
+  ];
+  const wp = Stats.weightPaceClass();
+  eq('weightPaceClass: -1kg su 7gg = -1kg/settimana', wp.kgWeek, -1);
+  ok('weightPaceClass: classificato fast oltre 1%/settimana', wp.level === 'fast');
 }
 
 /* ---------- esito ---------- */

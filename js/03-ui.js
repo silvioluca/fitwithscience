@@ -174,31 +174,6 @@ const Stats = {
     });
   },
 
-  /* TDEE reale: kcal medie mangiate − energia della variazione di peso.
-     Richiede ≥10 giorni loggati e ≥2 pesate su un arco ≥7 giorni (28gg max). */
-  estTdee() {
-    const from = daysAgo(27);
-    const dayList = [...new Set(Store.data.meals.filter(m => m.date >= from).map(m => m.date))]
-      .filter(d => this.dayMacros(d).kcal > 500); // giorni loggati sul serio
-    if (dayList.length < 10) return null;
-    const avgIn = dayList.reduce((a, d) => a + this.dayMacros(d).kcal, 0) / dayList.length;
-
-    const ms = this.sortedMeasurements().filter(m => m.date >= from);
-    if (ms.length < 2) return null;
-    const x0 = new Date(ms[0].date + 'T00:00');
-    const xs = ms.map(m => (new Date(m.date + 'T00:00') - x0) / 86400000);
-    if (xs[xs.length - 1] < 7) return null;
-    const ys = ms.map(m => m.weight);
-    const n = xs.length;
-    const sx = xs.reduce((a, b) => a + b, 0), sy = ys.reduce((a, b) => a + b, 0);
-    const sxy = xs.reduce((a, x, i) => a + x * ys[i], 0), sxx = xs.reduce((a, x) => a + x * x, 0);
-    const slope = (n * sxy - sx * sy) / (n * sxx - sx * sx || 1); // kg/giorno
-
-    const tdee = Math.round(avgIn - slope * 7700);
-    if (tdee < 1000 || tdee > 6000) return null;
-    return { tdee, days: dayList.length, weeklyDelta: round1(slope * 7) };
-  },
-
   /* Serie per gruppo muscolare negli ultimi 7 giorni */
   weeklySetsByGroup() {
     const from = daysAgo(6);
@@ -225,6 +200,148 @@ const Stats = {
     if (perf.rpe >= 10) return { kind: 'less', weight: Math.max(0, round1(perf.weight - 2.5)) };
     if (perf.rpe === 9) return { kind: 'repeat', weight: perf.weight };
     return { kind: 'more', weight: round1(perf.weight + 2.5) };
+  },
+
+
+  /* Esercizi in crescita/stallo/calo: pendenza %/settimana del 1RM stimato
+     (regressione lineare, ultimi 70 giorni; serve ≥3 sessioni su ≥14 giorni). */
+  exerciseTrends() {
+    const cutoff = daysAgo(70);
+    const byName = {};
+    [...Store.data.workouts].sort((a, b) => a.date.localeCompare(b.date))
+      .filter(w => w.date >= cutoff)
+      .forEach(w => w.exercises.forEach(e => {
+        if (e.mode === 'time' || !e.weight) return;
+        const orm = e.weight * (1 + e.reps / 30);
+        (byName[e.name] = byName[e.name] || { group: e.group, pts: [] }).pts.push({ date: w.date, orm });
+      }));
+
+    const out = [];
+    Object.entries(byName).forEach(([name, { group, pts }]) => {
+      if (pts.length < 3) return;
+      const span = (new Date(pts[pts.length - 1].date + 'T00:00') - new Date(pts[0].date + 'T00:00')) / 86400000;
+      if (span < 14) return;
+      const x0 = new Date(pts[0].date + 'T00:00');
+      const xs = pts.map(p => (new Date(p.date + 'T00:00') - x0) / 86400000);
+      const ys = pts.map(p => p.orm);
+      const n = xs.length;
+      const sx = xs.reduce((a, b) => a + b, 0), sy = ys.reduce((a, b) => a + b, 0);
+      const sxy = xs.reduce((a, x, i) => a + x * ys[i], 0), sxx = xs.reduce((a, x) => a + x * x, 0);
+      const denom = n * sxx - sx * sx;
+      if (!denom) return;
+      const slopeDay = (n * sxy - sx * sy) / denom;
+      const latest = ys[ys.length - 1];
+      const pctWeek = latest ? round1(slopeDay * 7 / latest * 100) : 0;
+      const trend = pctWeek >= 0.3 ? 'up' : pctWeek <= -0.3 ? 'down' : 'flat';
+      out.push({ name, group, pctWeek, latest: round1(latest), trend, sessions: pts.length });
+    });
+    return out.sort((a, b) => a.pctWeek - b.pctWeek);
+  },
+
+  /* Serie per fascia di ripetizioni negli ultimi 90 giorni (esclude gli
+     esercizi a durata, es. plank). */
+  repRangeDistribution() {
+    const cutoff = daysAgo(89);
+    const out = { strength: 0, hypertrophy: 0, endurance: 0 };
+    Store.data.workouts.filter(w => w.date >= cutoff).forEach(w => w.exercises.forEach(e => {
+      if (e.mode === 'time' || !e.sets) return;
+      if (e.reps <= 5) out.strength += e.sets;
+      else if (e.reps <= 12) out.hypertrophy += e.sets;
+      else out.endurance += e.sets;
+    }));
+    return out;
+  },
+
+  /* Monotonia (Foster): media / deviazione standard del volume settimanale
+     sulle ultime N settimane. Richiede ≥4 settimane con volume > 0. */
+  trainingMonotony(weeksN = 8) {
+    const weeks = [];
+    for (let w = weeksN - 1; w >= 0; w--) {
+      const from = daysAgo(w * 7 + 6), to = daysAgo(w * 7);
+      const vol = Store.data.workouts.filter(x => x.date >= from && x.date <= to)
+        .reduce((tt, x) => tt + this.workoutVolume(x), 0);
+      weeks.push(Math.round(vol));
+    }
+    const active = weeks.filter(v => v > 0);
+    if (active.length < 4) return null;
+    const mean = weeks.reduce((a, b) => a + b, 0) / weeks.length;
+    const variance = weeks.reduce((a, v) => a + (v - mean) ** 2, 0) / weeks.length;
+    const sd = Math.sqrt(variance);
+    // sd=0 (volume identico ogni settimana) è il caso di monotonia MASSIMA,
+    // non un dato mancante: 99 è un valore-sentinella oltre ogni soglia.
+    const monotony = sd ? round1(mean / sd) : (mean > 0 ? 99 : null);
+    const level = monotony == null ? null : monotony < 1.5 ? 'low' : monotony <= 2 ? 'moderate' : 'high';
+    return { weeks, mean: Math.round(mean), monotony, level };
+  },
+
+  /* Proteine della data indicata per kg di peso corporeo (ultima misurazione). */
+  proteinPerKg(date = todayISO()) {
+    const w = this.latestM()?.weight;
+    if (!w) return null;
+    return round1(this.dayMacros(date).protein / w);
+  },
+
+  /* Media proteine per tipologia di pasto negli ultimi n giorni (solo i
+     giorni in cui quel pasto è stato effettivamente registrato). */
+  mealProteinSplit(days = 7) {
+    const from = daysAgo(days - 1);
+    const out = {};
+    MEAL_KEYS.forEach(mk => {
+      const byDay = {};
+      Store.data.meals.filter(m => m.date >= from && m.meal === mk).forEach(m => {
+        byDay[m.date] = (byDay[m.date] || 0) + m.protein;
+      });
+      const vals = Object.values(byDay);
+      out[mk] = vals.length ? round1(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+    });
+    return out;
+  },
+
+  /* Giorni consecutivi (a ritroso da ieri) con calorie entro ±10%
+     dell'obiettivo giornaliero e almeno un pasto registrato. */
+  dietAdherenceStreak() {
+    const goal = Store.data.goals.kcal;
+    let streak = 0;
+    for (let i = 1; i <= 60; i++) {
+      const d = daysAgo(i);
+      const meals = this.mealsFor(d);
+      if (!meals.length) break;
+      const kcal = this.dayMacros(d).kcal;
+      if (Math.abs(kcal - goal) / goal > 0.1) break;
+      streak++;
+    }
+    return streak;
+  },
+
+  /* Serie di massa magra stimata (peso × (1 − %grasso)) per le misurazioni
+     che hanno la massa grassa registrata. */
+  leanMassSeries() {
+    return this.sortedMeasurements()
+      .filter(m => m.bodyFat != null)
+      .map(m => ({ date: m.date, weight: m.weight, lean: round1(m.weight * (1 - m.bodyFat / 100)) }));
+  },
+
+  /* Ritmo di variazione del peso: %/settimana sulle ultime ~28 giorni
+     (stessa regressione usata per il TDEE), con classificazione. */
+  weightPaceClass() {
+    const from = daysAgo(27);
+    const ms = this.sortedMeasurements().filter(m => m.date >= from);
+    if (ms.length < 2) return null;
+    const x0 = new Date(ms[0].date + 'T00:00');
+    const xs = ms.map(m => (new Date(m.date + 'T00:00') - x0) / 86400000);
+    if (xs[xs.length - 1] < 7) return null;
+    const ys = ms.map(m => m.weight);
+    const n = xs.length;
+    const sx = xs.reduce((a, b) => a + b, 0), sy = ys.reduce((a, b) => a + b, 0);
+    const sxy = xs.reduce((a, x, i) => a + x * ys[i], 0), sxx = xs.reduce((a, x) => a + x * x, 0);
+    const denom = n * sxx - sx * sx;
+    if (!denom) return null;
+    const slopeDay = (n * sxy - sx * sy) / denom;
+    const kgWeek = round1(slopeDay * 7);
+    const pctWeek = round1(kgWeek / ys[ys.length - 1] * 100);
+    const abs = Math.abs(pctWeek);
+    const level = abs < 0.15 ? 'stable' : abs <= 1 ? 'moderate' : 'fast';
+    return { kgWeek, pctWeek, level };
   },
 
   muscleFrequency() {
@@ -334,8 +451,8 @@ function statTips() {
   const F = k => M_FIELDS.find(f => f.key === k);
   return {
     [t('curWeight')]: t('tipWeight'), 'BMI': t('tipBmi'), [t('bodyFat')]: t('tipBf'),
-    [t('streak')]: t('tipStreak'), [t('kcalToday')]: t('tipKcalToday'), [t('workouts7')]: t('tipWork7'),
-    [t('nextSession')]: t('tipNext'), [t('proteinToday')]: t('tipProteinToday'),
+    [t('streak')]: t('tipStreak'), [t('workouts7')]: t('tipWork7'),
+    [t('nextSession')]: t('tipNext'),
     [t('totSessions')]: t('tipSessions'), [t('totVolume')]: t('tipVolume'),
     [t('exDone')]: t('tipExDone'), [t('avgDuration')]: t('tipAvgDur'),
     [t('kcalLbl2')]: t('tipKcal'), [t('proteinS')]: t('tipProtein'),
@@ -345,6 +462,8 @@ function statTips() {
     [t('estVo2')]: t('tipVo2'), [t('fitnessAge')]: t('tipFitAge'),
     ['Δ ' + fl(F('weight'))]: t('tipDeltaW'), ['Δ ' + fl(F('waist'))]: t('tipDeltaWaist'),
     [t('sessions')]: t('tipSessions'), 'Volume': t('tipVolume'),
+    [t('weightPace')]: t('tipWeightPace'), [t('proteinPerKg')]: t('tipProteinKg'),
+    [t('adherStreak')]: t('tipAdherStreak'),
   };
 }
 
@@ -379,6 +498,9 @@ function cardTips() {
     [t('exHistCard')]: t('tipExHist'), [t('explTitle')]: t('tipExplorer'),
     [t('weeklySets')]: t('tipWeeklySets'), [t('insTitle')]: t('tipInsights'),
     [t('corrTitle')]: t('tipCorr'),
+    [t('repRangeTitle')]: t('tipRepRange'), [t('stagTitle')]: t('tipStagnation'),
+    [t('monoTitle')]: t('tipMonotony'), [t('proteinSplitTitle')]: t('tipProteinSplit'),
+    [t('leanMassTitle')]: t('tipLeanMass'),
   };
 }
 

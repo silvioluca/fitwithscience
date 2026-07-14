@@ -522,28 +522,35 @@ function liveDialog() {
       // timer: durata sessione + countdown recupero (vibra allo zero)
       const tick = () => {
         const el = $('#liveElapsed');
-        if (!el) { clearInterval(LIVE?.iv); return; } // modale chiusa
+        if (!el) { clearInterval(LIVE?.iv); document.removeEventListener('visibilitychange', onVisible); return; } // modale chiusa
         const s = Math.floor((Date.now() - LIVE.startedAt) / 1000);
         el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
         const rest = $('#liveRest');
         const left = Math.ceil((LIVE.restEnd - Date.now()) / 1000);
         if (left > 0) { rest.textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0'); rest.style.color = 'var(--amber)'; }
-        else if (LIVE.restEnd && left > -3) {
-          rest.textContent = '0:00'; rest.style.color = 'var(--emerald)';
+        else if (LIVE.restEnd) {
           // Vibra una sola volta per recupero: confronta col timestamp già
-          // notificato invece di pretendere left===0 esatto — con setInterval
-          // (specie a schermo spento) quel singolo tick può saltare.
-          if (LIVE.restVibratedFor !== LIVE.restEnd) {
+          // notificato invece di pretendere left===0 esatto o un tick recente —
+          // a schermo spento il browser sospende setInterval anche per minuti,
+          // quindi al risveglio "left" può essere molto oltre lo zero. Il tetto
+          // di 600s serve solo a non far vibrare un recupero ormai abbandonato.
+          if (LIVE.restVibratedFor !== LIVE.restEnd && left > -600) {
             LIVE.restVibratedFor = LIVE.restEnd;
             if (navigator.vibrate) navigator.vibrate([120, 80, 120, 80, 200]);
           }
+          if (left > -3) { rest.textContent = '0:00'; rest.style.color = 'var(--emerald)'; }
+          else { rest.textContent = '—'; rest.style.color = ''; }
         }
         else { rest.textContent = '—'; rest.style.color = ''; }
       };
+      // al ritorno in foreground (sblocco schermo) forza subito un tick: non
+      // aspettare il prossimo giro da 1s per far scattare la vibrazione "in ritardo".
+      const onVisible = () => { if (!document.hidden) tick(); };
+      document.addEventListener('visibilitychange', onVisible);
       LIVE.iv = setInterval(tick, 1000);
       tick();
 
-      $('#liveDiscard', root).onclick = () => { clearInterval(LIVE.iv); LIVE = null; Modal.close(); Router.render(); };
+      $('#liveDiscard', root).onclick = () => { clearInterval(LIVE.iv); document.removeEventListener('visibilitychange', onVisible); LIVE = null; Modal.close(); Router.render(); };
 
       $('#liveFinish', root).onclick = () => {
         const done = LIVE.exs.filter(e => e.done > 0);
@@ -571,6 +578,7 @@ function liveDialog() {
           e.weight * (1 + e.reps / 30) > (prevBest[e.name.toLowerCase()] || 0)).map(e => e.name);
 
         clearInterval(LIVE.iv);
+        document.removeEventListener('visibilitychange', onVisible);
         LIVE = null;
         Modal.close();
         Toast.show(t('liveDone', duration));

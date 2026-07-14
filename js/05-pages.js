@@ -9,7 +9,6 @@ const Pages = {
   dashboard() {
     const m = Stats.latestM(), prev = Stats.prevM();
     const dWeight = m && prev ? round1(m.weight - prev.weight) : 0;
-    const macros = Stats.dayMacros(todayISO());
     const goals = Store.data.goals;
     const week = Stats.weekWorkouts();
     const weekMin = week.reduce((tt, w) => tt + w.duration, 0);
@@ -35,10 +34,15 @@ const Pages = {
         ${statCard('BMI', Stats.bmi(m) ?? '—', m ? t('bmiSub') : '', 'delta-good', 'gauge', 'ico-blue')}
         ${statCard(t('bodyFat'), m?.bodyFat ? `${m.bodyFat}<small> %</small>` : '—', prev?.bodyFat && m?.bodyFat ? `${round1(m.bodyFat - prev.bodyFat)} % ${t('vsPrev')}` : '', 'delta-down', 'percent', 'ico-purple')}
         ${statCard(t('streak'), `${Stats.streak()}<small> ${t('days')}</small>`, t('streakSub'), 'delta-good', 'flame', 'ico-amber')}
-        ${statCard(t('kcalToday'), `${Math.round(macros.kcal)}<small> kcal</small>`, `${Math.max(0, goals.kcal - Math.round(macros.kcal))} ${t('remaining')}`, 'delta-neutral', 'utensils', 'ico-emerald')}
         ${statCard(t('workouts7'), `${week.length}<small> / ${goals.weeklyWorkouts}</small>`, `${weekMin} ${t('minTotal')}`, 'delta-neutral', 'dumbbell', 'ico-blue')}
         ${statCard(t('nextSession'), `<span style="font-size:15px">${esc(nextName)}</span>`, t('nextSub'), 'delta-neutral', 'calendar', 'ico-purple')}
-        ${statCard(t('proteinToday'), `${Math.round(macros.protein)}<small> / ${goals.protein} g</small>`, `${Math.round(macros.protein / goals.protein * 100)}${t('ofGoal')}`, 'delta-good', 'activity', 'ico-amber')}
+        ${(() => {
+          const wp = Stats.weightPaceClass();
+          if (!wp) return statCard(t('weightPace'), '—', '', 'delta-neutral', 'trending', 'ico-blue');
+          const label = wp.level === 'stable' ? t('wpStable') : wp.level === 'moderate' ? t('wpModerate') : t('wpFast');
+          const cls = wp.level === 'fast' ? 'delta-up' : 'delta-good';
+          return statCard(t('weightPace'), `${wp.pctWeek > 0 ? '+' : ''}${wp.pctWeek}<small>%/sett</small>`, label, cls, 'trending', 'ico-blue');
+        })()}
       </div>
 
       <div class="card mt">
@@ -160,6 +164,11 @@ const Pages = {
       <div class="card mt"><div class="card-title">${t('allMeasChart')}</div><div class="card-sub">${t('allMeasSub')}</div>
         <div class="chart-wrap tall"><canvas id="chAllMeas"></canvas></div></div>
 
+      <div class="card mt">
+        <div class="card-title">${t('leanMassTitle')}</div><div class="card-sub">${t('leanMassSub')}</div>
+        ${Stats.leanMassSeries().length ? `<div class="chart-wrap"><canvas id="chLeanMass"></canvas></div>` : emptyState('scale', t('noResults'), t('leanMassNeed'))}
+      </div>
+
       <div class="card table-card mt">
         <div class="table-toolbar"><div class="card-title">${t('historyMeas')}</div>
           <div class="spacer">
@@ -279,6 +288,21 @@ const Pages = {
         options: { ...Charts.baseOpts(), indexAxis: 'y' },
       });
     }
+
+    const lean = Stats.leanMassSeries();
+    if (lean.length) {
+      Charts.make('chLeanMass', {
+        type: 'line',
+        data: {
+          labels: lean.map(m => fmtDateShort(m.date)),
+          datasets: [
+            { label: t('weightKg'), data: lean.map(m => m.weight), borderColor: Charts.colors.blue, tension: .3, pointRadius: 3, borderWidth: 2, spanGaps: true },
+            { label: t('leanMassLbl'), data: lean.map(m => m.lean), borderColor: Charts.colors.emerald, backgroundColor: Charts.gradient('chLeanMass', Charts.colors.emerald), fill: true, tension: .3, pointRadius: 3, borderWidth: 2.5, spanGaps: true },
+          ],
+        },
+        options: Charts.baseOpts(),
+      });
+    }
   },
 
   /* ------------------------------------------------ ALLENAMENTO */
@@ -324,6 +348,40 @@ const Pages = {
                 <span style="width:60px;text-align:right;font-size:12.5px;color:var(--text-soft)">${n} ${t('setsUnit')}</span>
               </div>`;
             }).join('');
+          })()}
+        </div>
+        <div class="card"><div class="card-title">${t('repRangeTitle')}</div><div class="card-sub">${t('repRangeSub')}</div>
+          <div class="chart-wrap short"><canvas id="chRepRange"></canvas></div></div>
+      </div>
+
+      <div class="grid grid-2 mt">
+        <div class="card">
+          <div class="card-title">${t('stagTitle')}</div><div class="card-sub">${t('stagSub')}</div>
+          ${(() => {
+            const trends = Stats.exerciseTrends();
+            if (!trends.length) return emptyState('trending', t('noResults'), t('stagNoData'));
+            const dot = trend => trend === 'up' ? 'var(--emerald)' : trend === 'down' ? 'var(--red)' : 'var(--amber)';
+            const arrow = trend => trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→';
+            const label = trend => trend === 'up' ? t('stagUp') : trend === 'down' ? t('stagDown') : t('stagFlat');
+            return trends.slice(0, 8).map(x => `<div class="pr-item">
+              <span class="pr-rank rn" style="color:${dot(x.trend)};background:color-mix(in srgb, ${dot(x.trend)} 16%, transparent)">${arrow(x.trend)}</span>
+              <div><div class="pr-name">${esc(x.name)}</div><div class="pr-detail">${x.latest} kg 1RM · ${label(x.trend)}</div></div>
+              <span class="pr-value" style="color:${dot(x.trend)}">${x.pctWeek > 0 ? '+' : ''}${x.pctWeek}%/sett</span>
+            </div>`).join('');
+          })()}
+        </div>
+        <div class="card">
+          <div class="card-title">${t('monoTitle')}</div><div class="card-sub">${t('monoSub')}</div>
+          ${(() => {
+            const mono = Stats.trainingMonotony();
+            if (!mono) return emptyState('gauge', t('noResults'), t('monoNeed'));
+            const label = mono.level === 'low' ? t('monoLow') : mono.level === 'moderate' ? t('monoMod') : t('monoHigh');
+            const color = mono.level === 'low' ? 'var(--emerald)' : mono.level === 'moderate' ? 'var(--amber)' : 'var(--red)';
+            return `<div style="display:flex;align-items:baseline;gap:14px;margin-bottom:14px">
+              <span style="font-size:36px;font-weight:800;color:${color}">${mono.monotony}</span>
+              <span style="font-size:13px;color:var(--text-soft)">${label}</span>
+            </div>
+            <div class="chart-wrap short"><canvas id="chMonotony"></canvas></div>`;
           })()}
         </div>
       </div>
@@ -460,6 +518,34 @@ const Pages = {
         },
       });
     }
+
+    const rr = Stats.repRangeDistribution();
+    if (rr.strength || rr.hypertrophy || rr.endurance) {
+      Charts.make('chRepRange', {
+        type: 'doughnut',
+        data: {
+          labels: [t('rrStrength'), t('rrHyper'), t('rrEndur')],
+          datasets: [{ data: [rr.strength, rr.hypertrophy, rr.endurance], backgroundColor: [Charts.colors.red, Charts.colors.emerald, Charts.colors.blue], borderWidth: 0, hoverOffset: 8 }],
+        },
+        options: { ...Charts.baseOpts({ cutout: '62%' }), scales: {} },
+      });
+    }
+
+    const mono = Stats.trainingMonotony();
+    if (mono) {
+      const wLabels = [...Array(mono.weeks.length)].map((_, i) => {
+        const from = daysAgo((mono.weeks.length - 1 - i) * 7 + 6); // stesso calcolo di trainingMonotony()
+        return fmtDateShort(from);
+      });
+      Charts.make('chMonotony', {
+        type: 'bar',
+        data: {
+          labels: wLabels,
+          datasets: [{ label: t('calVolume'), data: mono.weeks, backgroundColor: Charts.colors.blue + 'cc', borderRadius: 8, maxBarThickness: 26 }],
+        },
+        options: { ...Charts.baseOpts(), plugins: { ...Charts.baseOpts().plugins, legend: { display: false } } },
+      });
+    }
   },
 
   /* ------------------------------------------------ ALIMENTAZIONE */
@@ -505,11 +591,12 @@ const Pages = {
         ${statCard(t('carbsS'), `${Math.round(mac.carbs)}<small> / ${g.carbs} g</small>`, `${Math.round(mac.carbs / g.carbs * 100)}%`, 'delta-neutral', 'target', 'ico-amber')}
         ${statCard(t('fatS'), `${Math.round(mac.fat)}<small> / ${g.fat} g</small>`, `${Math.round(mac.fat / g.fat * 100)}%`, 'delta-neutral', 'droplet', 'ico-purple')}
         ${(() => {
-          const td = Stats.estTdee();
-          return td
-            ? statCard(t('tdeeLbl'), `${td.tdee}<small> kcal</small>`, t('tdeeSub', td.days, (td.weeklyDelta > 0 ? '+' : '') + td.weeklyDelta), 'delta-neutral', 'gauge', 'ico-emerald')
-            : statCard(t('tdeeLbl'), '—', t('tdeeNeed'), 'delta-neutral', 'gauge', 'ico-emerald');
+          const pk = Stats.proteinPerKg(date);
+          return pk != null
+            ? statCard(t('proteinPerKg'), `${pk}<small> g/kg</small>`, t('proteinPerKgSub', '1.6', '2.2'), pk >= 1.6 ? 'delta-good' : 'delta-neutral', 'activity', 'ico-blue')
+            : statCard(t('proteinPerKg'), '—', '', 'delta-neutral', 'activity', 'ico-blue');
         })()}
+        ${statCard(t('adherStreak'), `${Stats.dietAdherenceStreak()}<small> ${t('days')}</small>`, t('adherStreakSub'), 'delta-good', 'flame', 'ico-amber')}
       </div>
 
       <div class="grid grid-2 mt">
@@ -528,6 +615,13 @@ const Pages = {
           <div class="card-title mt" style="font-size:14px;margin-bottom:14px">${t('weekSummary')}</div>
           <div class="chart-wrap short"><canvas id="chWeekKcal"></canvas></div>
         </div>
+      </div>
+
+      <div class="card mt">
+        <div class="card-title">${t('proteinSplitTitle')}</div><div class="card-sub">${t('proteinSplitSub')}</div>
+        ${Object.values(Stats.mealProteinSplit()).some(v => v > 0)
+          ? `<div class="chart-wrap short"><canvas id="chProteinSplit"></canvas></div>`
+          : emptyState('utensils', t('noResults'), t('proteinSplitNeed'))}
       </div>
 
       ${mealBlocks}
@@ -591,6 +685,18 @@ const Pages = {
       },
       options: { ...Charts.baseOpts(), scales: { x: { stacked: true, grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }, y: { stacked: true, ticks: { color: '#94a3b8', font: { size: 10 } }, border: { display: false } } } },
     });
+
+    const split = Stats.mealProteinSplit();
+    if (Object.values(split).some(v => v > 0)) {
+      Charts.make('chProteinSplit', {
+        type: 'bar',
+        data: {
+          labels: MEAL_KEYS.map(mealLabel),
+          datasets: [{ label: t('proteinS') + ' (g)', data: MEAL_KEYS.map(mk => split[mk]), backgroundColor: Charts.colors.blue + 'cc', borderRadius: 8, maxBarThickness: 40 }],
+        },
+        options: { ...Charts.baseOpts(), plugins: { ...Charts.baseOpts().plugins, legend: { display: false } } },
+      });
+    }
   },
 
   /* ------------------------------------------------ RIPOSO */

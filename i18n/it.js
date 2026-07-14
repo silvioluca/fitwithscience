@@ -99,9 +99,9 @@ window.FWS_I18N.it = {
   // Dashboard
   hi: 'Ciao', overview: 'Panoramica del', qMeasure: 'Misurazione', qWorkout: 'Allenamento', qMeal: 'Pasto',
   curWeight: 'Peso attuale', vsPrev: 'vs precedente', bmiSub: 'Indice massa corporea', bodyFat: 'Massa grassa',
-  streak: 'Streak', days: 'giorni', streakSub: 'Allenamenti consecutivi', kcalToday: 'Calorie oggi',
+  streak: 'Streak', days: 'giorni', streakSub: 'Allenamenti consecutivi',
   remaining: 'rimanenti', workouts7: 'Allenamenti (7g)', minTotal: 'min totali',
-  nextSession: 'Prossima sessione', nextSub: 'Suggerita in base allo split', proteinToday: 'Proteine oggi',
+  nextSession: 'Prossima sessione', nextSub: 'Suggerita in base allo split',
   ofGoal: '% obiettivo', weightTrend: 'Andamento peso', weightTrendSub: 'Storico misurazioni',
   volTitle: 'Volume allenamento', volSub: 'kg totali sollevati per sessione',
   dailyKcal: 'Calorie giornaliere', kcalSub: 'Ultimi 7 giorni vs obiettivo',
@@ -177,10 +177,8 @@ window.FWS_I18N.it = {
   tipBmi: "Peso / altezza² (kg/m²). Indice generale: non distingue massa magra e grassa.",
   tipBf: "Percentuale di massa grassa dell'ultima misurazione.",
   tipStreak: "Giorni consecutivi con allenamento (tollerato 1 giorno di riposo).",
-  tipKcalToday: "Calorie registrate oggi nel diario vs il tuo obiettivo giornaliero.",
   tipWork7: "Sessioni negli ultimi 7 giorni vs obiettivo settimanale.",
   tipNext: "Suggerita alternando Upper/Lower in base all'ultima sessione.",
-  tipProteinToday: "Proteine assunte oggi vs obiettivo giornaliero.",
   tipSessions: "Numero di allenamenti registrati nel periodo.",
   tipVolume: "Somma di serie × ripetizioni × kg su tutti gli esercizi.",
   tipExDone: "Esercizi totali svolti, con media per sessione.",
@@ -238,9 +236,7 @@ window.FWS_I18N.it = {
   lastTime: 'Ultima: {0}×{1} @ {2} kg (RPE {3})', tryNext: '→ prova {0} kg',
   tryRepeat: '→ ripeti il carico', tryLess: '→ scendi a {0} kg',
   // Peso / TDEE
-  ma7: 'Media 7 giorni', tdeeLbl: 'TDEE stimato', tdeeSub: 'da {0} giorni loggati · peso {1} kg/sett',
-  tdeeNeed: 'Servono ≥10 giorni loggati e ≥2 pesate su 7+ giorni',
-  tipTdee: 'Spesa energetica reale: kcal medie mangiate − energia della variazione di peso (7700 kcal/kg). Più affidabile di qualsiasi formula.',
+  ma7: 'Media 7 giorni',
   // Serie settimanali
   weeklySets: 'Serie settimanali per gruppo', weeklySetsSub: 'Ultimi 7 giorni · fascia consigliata 10–20 serie/muscolo',
   tipWeeklySets: 'Serie allenanti per gruppo negli ultimi 7 giorni. 10–20 è la fascia con più evidenza per l\'ipertrofia.',
@@ -269,4 +265,35 @@ window.FWS_I18N.it = {
   calSessions: 'Sessioni', calVolume: 'Volume', calAvgKcal: 'Kcal medie', calDaysLogged: 'Giorni loggati',
   calAddWork: 'Aggiungi allenamento', calAddMeal: 'Aggiungi pasto', calEmptyDay: 'Nessun dato per questo giorno',
   calYearSub: 'Un quadratino per giorno · intensità = allenamento + pasti loggati',
+  // Rilevatore di stallo
+  stagTitle: 'Progressione esercizi', stagSub: 'Andamento del 1RM stimato nelle ultime settimane',
+  stagUp: 'in crescita', stagFlat: 'in stallo', stagDown: 'in calo',
+  stagNoData: 'Servono più sessioni ripetute dello stesso esercizio (almeno 3, su 2+ settimane) per calcolare un trend.',
+  tipStagnation: "Pendenza %/settimana del 1RM stimato per ogni esercizio (regressione sulle ultime 10 settimane). Aiuta a capire dove serve variare stimolo o volume.",
+  // Distribuzione rep range
+  repRangeTitle: 'Distribuzione rep range', repRangeSub: 'Serie per fascia di ripetizioni (ultimi 90 giorni)',
+  rrStrength: 'Forza (1–5)', rrHyper: 'Ipertrofia (6–12)', rrEndur: 'Resistenza (13+)',
+  tipRepRange: "In che range di ripetizioni cadono le tue serie: forza, ipertrofia o resistenza. Utile per verificare che l'allenamento rispecchi il tuo obiettivo.",
+  // Monotonia allenamento
+  monoTitle: 'Monotonia allenamento', monoSub: 'Media / deviazione standard del volume settimanale (metodo Foster)',
+  monoLow: 'bassa — buona variazione', monoMod: 'moderata', monoHigh: 'alta — poca variazione',
+  monoNeed: 'Servono almeno 4 settimane con allenamenti registrati per calcolare la monotonia.',
+  tipMonotony: "Media dei volumi settimanali diviso la loro deviazione standard. Valori alti indicano un carico troppo ripetitivo, associato a maggior rischio nella letteratura sportiva.",
+  // Proteine per kg / streak aderenza
+  proteinPerKg: 'Proteine per kg', proteinPerKgSub: '{0}–{1} g/kg è la fascia consigliata per preservare la massa magra',
+  tipProteinKg: 'Proteine di oggi divise per il tuo peso corporeo più recente. Più significativo del valore assoluto in grammi.',
+  adherStreak: 'Aderenza dieta', adherStreakSub: "Giorni consecutivi entro ±10% dell'obiettivo calorico",
+  tipAdherStreak: 'Giorni di fila in cui le calorie loggate sono rimaste entro il 10% del tuo obiettivo giornaliero.',
+  // Distribuzione proteine tra i pasti
+  proteinSplitTitle: 'Proteine per pasto', proteinSplitSub: 'Media ultimi 7 giorni',
+  tipProteinSplit: 'Come si distribuiscono le proteine tra i pasti della giornata: dosi più regolari aiutano la sintesi proteica muscolare.',
+  proteinSplitNeed: 'Registra qualche pasto per vedere la distribuzione.',
+  // Massa magra
+  leanMassTitle: 'Massa magra stimata', leanMassSub: 'Peso × (1 − % grasso), dove disponibile',
+  leanMassNeed: 'Registra la massa grassa in almeno una misurazione per vedere questo grafico.',
+  tipLeanMass: 'Stima la componente di massa magra scorporata dal peso totale: distingue un calo di peso "buono" (grasso) da uno "cattivo" (muscolo).',
+  leanMassLbl: 'Massa magra',
+  // Ritmo variazione peso
+  weightPace: 'Ritmo variazione peso', wpStable: 'stabile', wpModerate: 'ritmo sano', wpFast: 'troppo rapido',
+  tipWeightPace: 'Variazione % di peso a settimana (ultime 4 settimane). 0.15–1%/settimana è generalmente considerato un ritmo sostenibile.',
 };

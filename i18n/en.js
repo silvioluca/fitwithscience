@@ -99,9 +99,9 @@ window.FWS_I18N.en = {
   // Dashboard
   hi: 'Hi', overview: 'Overview for', qMeasure: 'Measurement', qWorkout: 'Workout', qMeal: 'Meal',
   curWeight: 'Current weight', vsPrev: 'vs previous', bmiSub: 'Body mass index', bodyFat: 'Body fat',
-  streak: 'Streak', days: 'days', streakSub: 'Consecutive training days', kcalToday: 'Calories today',
+  streak: 'Streak', days: 'days', streakSub: 'Consecutive training days',
   remaining: 'remaining', workouts7: 'Workouts (7d)', minTotal: 'min total',
-  nextSession: 'Next session', nextSub: 'Suggested by your split', proteinToday: 'Protein today',
+  nextSession: 'Next session', nextSub: 'Suggested by your split',
   ofGoal: '% of goal', weightTrend: 'Weight trend', weightTrendSub: 'Measurement history',
   volTitle: 'Training volume', volSub: 'total kg lifted per session',
   dailyKcal: 'Daily calories', kcalSub: 'Last 7 days vs goal',
@@ -177,10 +177,8 @@ window.FWS_I18N.en = {
   tipBmi: "Weight / height² (kg/m²). General index: does not distinguish lean vs fat mass.",
   tipBf: "Body-fat percentage from the latest measurement.",
   tipStreak: "Consecutive training days (1 rest day tolerated).",
-  tipKcalToday: "Calories logged today vs your daily goal.",
   tipWork7: "Sessions in the last 7 days vs weekly goal.",
   tipNext: "Suggested by alternating Upper/Lower based on your last session.",
-  tipProteinToday: "Protein eaten today vs daily goal.",
   tipSessions: "Number of workouts logged in the period.",
   tipVolume: "Sum of sets × reps × kg across all exercises.",
   tipExDone: "Total exercises performed, with per-session average.",
@@ -238,9 +236,7 @@ window.FWS_I18N.en = {
   lastTime: 'Last: {0}×{1} @ {2} kg (RPE {3})', tryNext: '→ try {0} kg',
   tryRepeat: '→ repeat the load', tryLess: '→ drop to {0} kg',
   // Weight / TDEE
-  ma7: '7-day average', tdeeLbl: 'Estimated TDEE', tdeeSub: 'from {0} logged days · weight {1} kg/wk',
-  tdeeNeed: 'Needs ≥10 logged days and ≥2 weigh-ins spanning 7+ days',
-  tipTdee: 'Real energy expenditure: average kcal eaten − energy of the weight change (7700 kcal/kg). More reliable than any formula.',
+  ma7: '7-day average',
   // Weekly sets
   weeklySets: 'Weekly sets per muscle group', weeklySetsSub: 'Last 7 days · recommended range 10–20 sets/muscle',
   tipWeeklySets: 'Working sets per group over the last 7 days. 10–20 is the best-evidence hypertrophy range.',
@@ -269,4 +265,35 @@ window.FWS_I18N.en = {
   calSessions: 'Sessions', calVolume: 'Volume', calAvgKcal: 'Avg kcal', calDaysLogged: 'Days logged',
   calAddWork: 'Add workout', calAddMeal: 'Add meal', calEmptyDay: 'No data for this day',
   calYearSub: 'One square per day · intensity = workout + meals logged',
+  // Stagnation detector
+  stagTitle: 'Exercise progression', stagSub: 'Estimated 1RM trend over recent weeks',
+  stagUp: 'growing', stagFlat: 'stalled', stagDown: 'declining',
+  stagNoData: 'Needs more repeated sessions of the same exercise (at least 3, over 2+ weeks) to compute a trend.',
+  tipStagnation: 'Estimated 1RM slope in %/week per exercise (regression over the last 10 weeks). Helps spot where you need to vary stimulus or volume.',
+  // Rep range distribution
+  repRangeTitle: 'Rep range distribution', repRangeSub: 'Sets by rep range (last 90 days)',
+  rrStrength: 'Strength (1–5)', rrHyper: 'Hypertrophy (6–12)', rrEndur: 'Endurance (13+)',
+  tipRepRange: 'Which rep range your sets fall into: strength, hypertrophy or endurance. Useful to check your training matches your goal.',
+  // Training monotony
+  monoTitle: 'Training monotony', monoSub: 'Weekly volume mean / standard deviation (Foster method)',
+  monoLow: 'low — good variation', monoMod: 'moderate', monoHigh: 'high — little variation',
+  monoNeed: 'Needs at least 4 weeks with logged workouts to compute monotony.',
+  tipMonotony: 'Mean of weekly volumes divided by their standard deviation. High values indicate overly repetitive loading, linked to higher risk in sports-science literature.',
+  // Protein per kg / adherence streak
+  proteinPerKg: 'Protein per kg', proteinPerKgSub: '{0}–{1} g/kg is the recommended range to preserve lean mass',
+  tipProteinKg: "Today's protein divided by your most recent body weight. More meaningful than the absolute gram value.",
+  adherStreak: 'Diet adherence', adherStreakSub: 'Consecutive days within ±10% of your calorie goal',
+  tipAdherStreak: 'Consecutive days where logged calories stayed within 10% of your daily goal.',
+  // Protein split across meals
+  proteinSplitTitle: 'Protein per meal', proteinSplitSub: 'Last 7-day average',
+  tipProteinSplit: "How protein is spread across the day's meals: more even doses support muscle protein synthesis.",
+  proteinSplitNeed: 'Log a few meals to see the breakdown.',
+  // Lean mass
+  leanMassTitle: 'Estimated lean mass', leanMassSub: 'Weight × (1 − body fat %), where available',
+  leanMassNeed: 'Log body fat in at least one measurement to see this chart.',
+  tipLeanMass: 'Estimates the lean-mass component split out from total weight: distinguishes "good" weight loss (fat) from "bad" (muscle).',
+  leanMassLbl: 'Lean mass',
+  // Weight pace
+  weightPace: 'Weight change pace', wpStable: 'stable', wpModerate: 'healthy pace', wpFast: 'too fast',
+  tipWeightPace: 'Weight % change per week (last 4 weeks). 0.15–1%/week is generally considered a sustainable pace.',
 };
