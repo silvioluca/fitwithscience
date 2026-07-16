@@ -510,6 +510,11 @@ function liveDialog() {
           LIVE.restEnd = Date.now() + e.rest * 1000; // il recupero parte al set completato
           if (navigator.vibrate) navigator.vibrate(30);
           updateSetUI(i);
+          // tutti i set di tutti gli esercizi completati: salva e chiudi da sola,
+          // con un attimo di ritardo per far vedere l'ultima barra che si riempie.
+          if (LIVE.exs.length && LIVE.exs.every(x => x.done >= x.total)) {
+            setTimeout(() => $('#liveFinish', root)?.click(), 500);
+          }
         });
         $$('[data-reps]', box).forEach(inp => inp.oninput = () => { LIVE.exs[Number(inp.dataset.reps)].reps = Number(inp.value) || 1; });
         $$('[data-w]', box).forEach(inp => inp.oninput = () => { LIVE.exs[Number(inp.dataset.w)].weight = Number(inp.value) || 0; });
